@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1017">
+<title>Атлант Груп — заработок</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+<header class="topbar">
+  <div><div class="eyebrow">ООО «Атлант Груп»</div><h1>Калькулятор заработка</h1><p>Смены, тарифы, выплаты и перегоны</p></div>
+  <div class="top-actions"><button class="btn ghost" id="exportBtn">Экспорт</button><label class="btn ghost file-btn">Импорт<input id="importFile" type="file" accept=".json" hidden></label></div>
+</header>
+
+<section class="summary-grid">
+  <article class="summary-card accent"><span>За месяц</span><strong id="monthTotal">0 ₽</strong><small id="monthRange">—</small></article>
+  <article class="summary-card"><span>Расчёт</span><strong id="monthCalculated">0 ₽</strong><small>смены + перегоны</small></article>
+  <article class="summary-card"><span>Факт</span><strong id="monthActual">0 ₽</strong><small>только подтверждённые суммы</small></article>
+  <article class="summary-card"><span>Перегоны</span><strong id="monthCar">0 ₽</strong><small>за выбранный месяц</small></article>
+</section>
+
+<nav class="tabs"><button class="tab active" data-tab="days">Дни</button><button class="tab" data-tab="tariffs">Тарифы</button><button class="tab" data-tab="payments">Выплаты</button></nav>
+
+<main>
+<section class="panel active" id="days">
+  <div class="section-head"><div><h2>Рабочие дни</h2><p>Добавляй смену по шагам. Расчёт автоматически учитывает календарный будний/выходной день.</p></div><div class="month-picker"><button id="prevMonth">‹</button><input id="monthPicker" type="month"><button id="nextMonth">›</button></div></div>
+  <div class="toolbar"><button class="btn primary" id="addDayBtn">＋ Добавить день</button><button class="btn secondary" id="addCarBtn">＋ Добавить перегон</button><label class="switch"><input id="showAllMonths" type="checkbox"><span>Все месяцы</span></label></div>
+  <div id="daysList"></div>
+</section>
+
+<section class="panel" id="tariffs">
+  <div class="section-head"><div><h2>Тарифы</h2><p>Можно менять любую ставку. Изменения сохраняются в браузере.</p></div><button class="btn secondary" id="resetTariffs">Сбросить тарифы</button></div>
+  <div class="tariff-grid">
+    <article class="tariff-card"><span class="tag city">ГОРОД</span><h3>Город</h3><div id="cityFields"></div></article>
+    <article class="tariff-card"><span class="tag country">ЗАГОРОД</span><h3>Загород</h3><div id="countryFields"></div></article>
+    <article class="tariff-card"><span class="tag car">ПЕРЕГОН</span><h3>Перегон автомобиля</h3><div id="carFields"></div></article>
+  </div>
+</section>
+
+<section class="panel" id="payments">
+  <div class="section-head"><div><h2>Зарплатные периоды</h2><p>Работа 1–15 → выплата 25–30 этого месяца. Работа 16–конец → выплата 15–20 следующего месяца.</p></div></div>
+  <div class="payment-rules"><div><b>1–15</b><span>25–30 текущего месяца</span></div><div><b>16–конец</b><span>15–20 следующего месяца</span></div></div>
+  <div id="paymentsList"></div>
+</section>
+</main>
+</div>
+
+<!-- DAY WIZARD -->
+<div class="modal hidden day-modal" id="dayModal">
+<div class="modal-card wizard-card">
+  <div class="modal-head"><div><div class="eyebrow" id="wizardLabel">НОВАЯ СМЕНА</div><h2 id="dayModalTitle">Добавить день</h2></div><button class="close" data-close="dayModal">×</button></div>
+  <div class="progress"><i class="active"></i><i></i><i></i><i></i><i></i></div>
+  <form id="dayForm">
+    <input id="dayId" type="hidden">
+    <div class="step active" data-step="1">
+      <div class="step-title"><span>01</span><div><h3>Дата и тариф</h3><p>Ставка буднего/выходного дня определяется календарём.</p></div></div>
+      <label>Дата<input id="dayDate" type="date" required></label>
+      <label>Тариф<select id="dayTariff"><option value="city">Город</option><option value="country">Загород</option></select></label>
+      <div class="calendar-rule" id="calendarRule"></div>
+      <label>Комментарий <small>необязательно</small><input id="dayNote" type="text" placeholder="Например: обычная смена"></label>
+    </div>
+    <div class="step" data-step="2">
+      <div class="step-title"><span>02</span><div><h3>Точки</h3><p>Количество — это количество точек доставки в ПВЗ / забора из ПВЗ.</p></div></div>
+      <div class="number-card">
+        <div class="number-label">Количество точек</div>
+        <div class="number-control"><button type="button" data-number="dayPoints" data-delta="-1">−</button><input id="dayPoints" type="number" min="0" step="1" inputmode="numeric" value="0"><button type="button" data-number="dayPoints" data-delta="1">＋</button></div>
+      </div>
+      <div class="hint">Точки считаются по ставке «Доставка до ПВЗ / заборка из ПВЗ» выбранного тарифа.</div>
+    </div>
+    <div class="step" data-step="3">
+      <div class="step-title"><span>03</span><div><h3>Заказы и ЛОТы</h3><p>Вводи обычные посылки и мешки/батчи.</p></div></div>
+      <div class="number-card">
+        <div class="number-label">Обычные заказы</div>
+        <div class="number-control"><button type="button" data-number="dayOrders" data-delta="-1">−</button><input id="dayOrders" type="number" min="0" step="1" inputmode="numeric" value="0"><button type="button" data-number="dayOrders" data-delta="1">＋</button></div>
+      </div>
+      <div class="number-card">
+        <div class="number-label">ЛОТы / мешки</div>
+        <div class="number-control"><button type="button" data-number="dayLots" data-delta="-1">−</button><input id="dayLots" type="number" min="0" step="1" inputmode="numeric" value="0"><button type="button" data-number="dayLots" data-delta="1">＋</button></div>
+      </div>
+      <div class="hint">МГТ, если он уже входит в число обычных заказов, отдельно второй раз не прибавляется.</div>
+    </div>
+    <div class="step" data-step="4">
+      <div class="step-title"><span>04</span><div><h3>Доплаты</h3><p>Заполняй только то, что реально было в смене.</p></div></div>
+      <div class="number-grid">
+        <div class="number-card compact"><div class="number-label">Мультизаказы до 4</div><div class="number-control"><button type="button" data-number="dayMulti4" data-delta="-1">−</button><input id="dayMulti4" type="number" min="0" step="1" inputmode="numeric" value="0"><button type="button" data-number="dayMulti4" data-delta="1">＋</button></div></div>
+        <div class="number-card compact"><div class="number-label">Мультизаказы 5+</div><div class="number-control"><button type="button" data-number="dayMulti5" data-delta="-1">−</button><input id="dayMulti5" type="number" min="0" step="1" inputmode="numeric" value="0"><button type="button" data-number="dayMulti5" data-delta="1">＋</button></div></div>
+      </div>
+      <div class="number-card">
+        <div class="number-label">Доставка клиентам — МГТ</div>
+        <div class="number-control"><button type="button" data-number="dayMgt" data-delta="-1">−</button><input id="dayMgt" type="number" min="0" step="1" inputmode="numeric" value="0"><button type="button" data-number="dayMgt" data-delta="1">＋</button></div>
+        <div class="field-note">МГТ учитывается для расчёта как обычные заказы, если они уже входят в поле «Заказы». Здесь число сохраняется отдельно для контроля отчёта.</div>
+      </div>
+      <div class="extra-payment-card">
+        <div class="extra-payment-title">Дополнительная сумма</div>
+        <p>Укажи любую сумму, которая была начислена сверх обычного расчёта.</p>
+        <div class="number-control extra-number-control"><button type="button" data-number="dayExtraAdd" data-delta="-100">−</button><input id="dayExtraAdd" type="number" min="0" step="1" inputmode="numeric" value="0"><button type="button" data-number="dayExtraAdd" data-delta="100">＋</button></div>
+        <label>Причина доплаты <small>желательно указать всегда</small><input id="dayExtraReason" type="text" maxlength="200" placeholder="Например: вышел в свой личный выходной"></label>
+      </div>
+      <div class="hint">МГТ отдельного поля нет специально, чтобы не получить двойной расчёт: по твоему правилу МГТ считаются обычными заказами.</div>
+    </div>
+    <div class="step" data-step="5">
+      <div class="step-title"><span>05</span><div><h3>Проверка и факт</h3><p>Если зарплата уже пришла — внеси фактическую сумму. Она будет отображаться вместо расчётной.</p></div></div>
+      <div id="dayPreview" class="preview"></div>
+      <label>Фактически получил <small>можно оставить пустым</small><input id="dayActual" type="number" step="1" inputmode="numeric" placeholder="Например, 4794"></label>
+      <div class="hint">Расчёт остаётся сохранённым даже после ввода фактической суммы — можно сравнить расхождение.</div>
+    </div>
+    <div class="wizard-actions"><button type="button" class="btn danger ghost" id="deleteDayBtn">Удалить</button><div class="wizard-right"><button type="button" class="btn secondary" id="wizardBack">Назад</button><button type="button" class="btn primary" id="wizardNext">Далее</button><button type="submit" class="btn primary hidden" id="wizardSave">Сохранить день</button></div></div>
+  </form>
+</div></div>
+
+<!-- CAR -->
+<div class="modal hidden" id="carModal"><div class="modal-card small">
+  <div class="modal-head"><div><div class="eyebrow">ПЕРЕГОН</div><h2 id="carModalTitle">Добавить перегон</h2></div><button class="close" data-close="carModal">×</button></div>
+  <form id="carForm"><input id="carId" type="hidden"><label>Дата<input id="carDate" type="date" required></label><label>Километраж<input id="carKm" type="number" min="0" step="1" inputmode="numeric" required></label><label>Сумма за перегон <small>если фактическая сумма отличается от тарифа</small><input id="carAmount" type="number" min="0" step="1" inputmode="numeric" placeholder="Автоматически по тарифу"></label><label>Комментарий<input id="carNote" type="text" placeholder="Например: перегон на сервис"></label><div class="preview" id="carPreview"></div><div class="modal-actions"><button type="button" class="btn danger ghost" id="deleteCarBtn">Удалить</button><span></span><button type="button" class="btn secondary" data-close="carModal">Отмена</button><button class="btn primary">Сохранить</button></div></form>
+</div></div>
+
+<div id="toast" class="toast"></div>
+<script src="script.js"></script>
+</body>
+</html>

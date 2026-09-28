@@ -1,64 +1,3379 @@
- STORAGE='atlant-earnings-v4';
-const DEFAULT_TARIFFS={
- city:{minWeekday:4400,minWeekend:4500,pointWeekday:150,pointWeekend:155,order:5,lot:27,multi4Weekday:150,multi4Weekend:155,multi5Weekday:42,multi5Weekend:42},
- country:{minWeekday:3950,minWeekend:4050,pointWeekday:140,pointWeekend:150,order:4,lot:48,multi4Weekday:140,multi4Weekend:150,multi5Weekday:38,multi5Weekend:38},
- car:{'4_20':2000,'21_50':2100,'51_80':2200,'81_100':2300,'101_120':2400,'121_plus':2500}
-};
-const state={data:{days:[],cars:[],extras:[]},tariffs:structuredClone(DEFAULT_TARIFFS)};
-let selectedMonth=currentMonth();let dayStep=1;let actualQueue=[];let actualIndex=0;
-const $=id=>document.getElementById(id); const money=n=>new Intl.NumberFormat('ru-RU').format(Math.round(n||0))+' ₽';
-function currentMonth(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}
-function uid(p='id'){return p+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7)}
-function load(){try{const raw=localStorage.getItem(STORAGE);if(raw){const x=JSON.parse(raw);Object.assign(state,x);state.data ||= {days:[],cars:[],extras:[]};state.data.days ||= [];state.data.cars ||= [];state.data.extras ||= [];state.tariffs ||= structuredClone(DEFAULT_TARIFFS)}}catch(e){console.error(e)}}
-function save(){localStorage.setItem(STORAGE,JSON.stringify(state))}
-function isWeekend(date){const d=new Date(date+'T12:00:00');return d.getDay()===0||d.getDay()===6}
-function monthOf(date){return date?.slice(0,7)}
-function fmtDate(date){return new Date(date+'T12:00:00').toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'})}
-function calcCar(km){km=Number(km)||0;if(km>=4&&km<=20)return state.tariffs.car['4_20'];if(km<=50)return state.tariffs.car['21_50'];if(km<=80)return state.tariffs.car['51_80'];if(km<=100)return state.tariffs.car['81_100'];if(km<=120)return state.tariffs.car['101_120'];if(km>120)return state.tariffs.car['121_plus'];return 0}
-function calcDay(d){const t=state.tariffs[d.tariff||'city'];const w=isWeekend(d.date);const point=w?t.pointWeekend:t.pointWeekday;const min=w?t.minWeekend:t.minWeekday;const multi4=w?t.multi4Weekend:t.multi4Weekday;const multi5=w?t.multi5Weekend:t.multi5Weekday;const base=(d.points||0)*point+(d.orders||0)*t.order+(d.lots||0)*t.lot+(d.multi4||0)*multi4+(d.multi5||0)*multi5;const calculated=Math.max(min,base)+(d.extraAmount||0);return {base,min,extra:d.extraAmount||0,calculated,weekend:w}}
-function monthData(month){const days=state.data.days.filter(d=>monthOf(d.date)===month);const cars=state.data.cars.filter(c=>monthOf(c.date)===month);const extras=state.data.extras.filter(e=>monthOf(e.date)===month);return {days,cars,extras}}
-function totals(month){const {days,cars,extras}=monthData(month);let calculated=0,received=0,expected=0;days.forEach(d=>{const c=calcDay(d).calculated;if(d.actual!==null&&d.actual!==undefined&&d.actual!=='')received+=Number(d.actual)||0;else expected+=c;calculated+=c});extras.forEach(e=>{if(e.actual!==null&&e.actual!==undefined&&e.actual!=='')received+=Number(e.actual)||0;else expected+=Number(e.amount)||0;calculated+=Number(e.amount)||0});cars.forEach(c=>{const a=c.actual??c.amount??calcCar(c.km);calculated+=Number(a)||0;if(c.actual!==null&&c.actual!==undefined&&c.actual!=='')received+=Number(c.actual)||0;else expected+=Number(a)||0});return {calculated,received,expected,car:cars.reduce((s,c)=>s+Number(c.actual??c.amount??calcCar(c.km)||0),0)}}
-function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.page===id));if(id==='daysPage')renderDays();if(id==='paymentsPage')renderPayments();if(id==='tariffsPage')renderTariffs();if(id==='homePage')renderDashboard()}
-function shiftMonth(m,delta){const [y,mo]=m.split('-').map(Number);const d=new Date(y,mo-1+delta,1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}
-function renderDashboard(){const t=totals(selectedMonth);$('monthLabel').textContent=new Date(selectedMonth+'-01T12:00:00').toLocaleDateString('ru-RU',{month:'long',year:'numeric'});$('dashboardTotal').textContent=money(t.calculated);$('dashboardReceived').textContent=money(t.received);$('dashboardExpected').textContent=money(t.expected);const groups=paymentGroups(selectedMonth);$('dashboardPeriods').innerHTML=groups.map(g=>`<div class="period-mini"><div><b>${g.label}</b><small>${g.window}</small></div><strong>${money(g.expected)}</strong></div>`).join('')||'<div class="empty">Пока нет начислений</div>'}
-function paymentGroups(month){const [y,m]=month.split('-').map(Number);const daysIn=new Date(y,m,0).getDate();const periods=[{label:'1–15',from:`${month}-01`,to:`${month}-15`,window:`выплата 25–30 ${new Date(y,m-1,1).toLocaleDateString('ru-RU',{month:'long'})}`},{label:'16–конец',from:`${month}-16`,to:`${month}-${String(daysIn).padStart(2,'0')}`,window:`выплата 15–20 ${new Date(y,m,1).toLocaleDateString('ru-RU',{month:'long'})}`}];return periods.map(p=>{const days=state.data.days.filter(d=>d.date>=p.from&&d.date<=p.to);const extras=state.data.extras.filter(e=>e.date>=p.from&&e.date<=p.to);const cars=state.data.cars.filter(c=>c.date>=p.from&&c.date<=p.to);let expected=0;days.forEach(d=>{if(d.actual==null||d.actual==='')expected+=calcDay(d).calculated});extras.forEach(e=>{if(e.actual==null||e.actual==='')expected+=Number(e.amount)||0});cars.forEach(c=>{if(c.actual==null||c.actual==='')expected+=Number(c.amount??calcCar(c.km))||0});return {...p,days,extras,cars,expected}})}
-function renderDays(){const month=$('daysMonthPicker').value||selectedMonth;selectedMonth=month;const {days,cars,extras}=monthData(month);const all=[];days.forEach(d=>all.push({date:d.date,type:'day',data:d}));cars.forEach(c=>all.push({date:c.date,type:'car',data:c}));extras.filter(e=>!e.dayId).forEach(e=>all.push({date:e.date,type:'extra',data:e}));all.sort((a,b)=>b.date.localeCompare(a.date));if(!all.length){$('daysList').innerHTML='<div class="empty">За этот месяц пока ничего нет.<br>Добавь день, доплату или перегон.</div>';return}$('daysList').innerHTML=all.map(x=>x.type==='day'?dayCard(x.data):x.type==='car'?carCard(x.data):extraCard(x.data)).join('')}
-function dayCard(d){const c=calcDay(d);const fact=d.actual!=null&&d.actual!=='';const linked=state.data.extras.filter(e=>e.dayId===d.id);return `<article class="day-card"><div class="day-head"><div><div class="day-date">${fmtDate(d.date)}</div><div class="day-meta">${d.tariff==='city'?'Город':'Загород'} · ${c.weekend?'выходной':'будний'}</div></div><div class="day-money">${money(fact?d.actual:c.calculated)}<small>${fact?'факт':'расчёт'}</small></div></div><div class="day-stats"><div class="stat"><b>${d.points||0}</b><span>точек</span></div><div class="stat"><b>${d.orders||0}</b><span>заказов</span></div><div class="stat"><b>${d.lots||0}</b><span>ЛОТов</span></div><div class="stat"><b>${d.mgt||0}</b><span>МГТ</span></div><div class="stat"><b>${(d.multi4||0)+(d.multi5||0)}</b><span>мульти</span></div></div>${linked.map(e=>`<div class="extra-line">+ ${money(e.amount)} · ${escapeHtml(e.reason)}</div>`).join('')}${d.note?`<div class="day-meta">${escapeHtml(d.note)}</div>`:''}<div class="day-bottom"><div>${fact?`<span class="actual">✓ Фактически: ${money(d.actual)}</span>`:`<span class="muted">Факт ещё не внесён</span>`}</div><div class="day-actions"><button class="edit" data-edit-day="${d.id}">Изменить</button><button class="edit" data-delete-day="${d.id}">×</button></div></div></article>`}
-function carCard(c){const amount=c.actual??c.amount??calcCar(c.km);return `<article class="day-card car-card"><div class="day-head"><div><div class="day-date">${fmtDate(c.date)} · 🚗 Перегон</div><div class="day-meta car-badge">${c.km} км · ${escapeHtml(c.note||'перегон')}</div></div><div class="day-money">${money(amount)}<small>${c.actual!=null?'факт':'расчёт'}</small></div></div><div class="day-bottom"><span class="muted">Отдельное начисление, не смена</span><div class="day-actions"><button class="edit" data-edit-car="${c.id}">Изменить</button><button class="edit" data-delete-car="${c.id}">×</button></div></div></article>`}
-function extraCard(e){return `<article class="day-card"><div class="day-head"><div><div class="day-date">${fmtDate(e.date)} · ₽ Доплата</div><div class="day-meta">Отдельно от смены${e.dayId?' · привязана к смене':''}</div></div><div class="day-money">${money(e.actual??e.amount)}<small>${e.actual!=null?'факт':'ожидаем'}</small></div></div><div class="extra-line">${escapeHtml(e.reason)}</div><div class="day-bottom"><span class="muted">Отдельное начисление</span><div class="day-actions"><button class="edit" data-edit-extra="${e.id}">Изменить</button><button class="edit" data-delete-extra="${e.id}">×</button></div></div></article>`}
-function escapeHtml(s=''){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[c]))}
-function openModal(id){$(id).classList.remove('hidden')}function closeModal(id){$(id).classList.add('hidden')}
-function resetDayForm(d=null){$('dayId').value=d?.id||'';$('dayDate').value=d?.date||new Date().toISOString().slice(0,10);$('dayTariff').value=d?.tariff||'city';$('dayNote').value=d?.note||'';$('dayPoints').value=d?.points??0;$('dayOrders').value=d?.orders??0;$('dayLots').value=d?.lots??0;$('dayMgt').value=d?.mgt??0;$('dayMulti4').value=d?.multi4??0;$('dayMulti5').value=d?.multi5??0;$('dayExtraAdd').value=d?.extraAmount??0;$('dayExtraReason').value=d?.extraReason||'';$('dayModalTitle').textContent=d?'Изменить день':'Добавить день';$('wizardLabel').textContent=d?'РЕДАКТИРОВАНИЕ':'НОВАЯ СМЕНА';dayStep=1;renderDayStep()}
-function renderDayStep(){document.querySelectorAll('#dayModal .step').forEach(s=>s.classList.toggle('active',Number(s.dataset.step)===dayStep));document.querySelectorAll('#dayModal .progress i').forEach((i,n)=>i.classList.toggle('active',n<dayStep));$('wizardBack').disabled=dayStep===1;$('wizardNext').classList.toggle('hidden',dayStep===5);$('wizardSave').classList.toggle('hidden',dayStep!==5);const date=$('dayDate').value;if(date){const w=isWeekend(date);const t=$('dayTariff').value==='city'?state.tariffs.city:state.tariffs.country;$('calendarRule').innerHTML=`<strong>${w?'Выходной день':'Будний день'}</strong>Минимум по тарифу: ${money(w?t.minWeekend:t.minWeekday)}`}$('dayPreview').innerHTML=previewDay()}
-function previewDay(){const d={date:$('dayDate').value,tariff:$('dayTariff').value,points:+$('dayPoints').value||0,orders:+$('dayOrders').value||0,lots:+$('dayLots').value||0,mgt:+$('dayMgt').value||0,multi4:+$('dayMulti4').value||0,multi5:+$('dayMulti5').value||0,extraAmount:+$('dayExtraAdd').value||0};const c=calcDay(d);return `<div>Точки: <b>${d.points}</b> · Заказы: <b>${d.orders}</b> · ЛОТы: <b>${d.lots}</b></div><div>МГТ: <b>${d.mgt}</b> · Мульти: <b>${d.multi4+d.multi5}</b></div><div>База до минимума: ${money(c.base)}</div><div>Доплата: ${money(c.extra)}</div><div>Итого по расчёту</div><strong>${money(c.calculated)}</strong>`}
-function collectDay(){return {id:$('dayId').value||uid('day'),date:$('dayDate').value,tariff:$('dayTariff').value,note:$('dayNote').value.trim(),points:+$('dayPoints').value||0,orders:+$('dayOrders').value||0,lots:+$('dayLots').value||0,mgt:+$('dayMgt').value||0,multi4:+$('dayMulti4').value||0,multi5:+$('dayMulti5').value||0,extraAmount:+$('dayExtraAdd').value||0,extraReason:$('dayExtraReason').value.trim(),actual:(()=>{const old=state.data.days.find(x=>x.id===$('dayId').value);return old?old.actual:null})()}}
-function saveDay(e){e.preventDefault();const d=collectDay();if(d.extraAmount>0&&!d.extraReason){toast('Укажи причину доплаты');dayStep=4;renderDayStep();return}const i=state.data.days.findIndex(x=>x.id===d.id);if(i>=0)state.data.days[i]=d;else state.data.days.push(d);save();closeModal('dayModal');renderAll();toast('День сохранён')}
-function openExtra(prefDate=selectedMonth+'-01',dayId=''){populateExtraDays();$('extraDate').value=prefDate;$('extraAmount').value='';$('extraReason').value='';$('extraDayId').value=dayId;openModal('extraModal')}
-function populateExtraDays(){$('extraDayId').innerHTML='<option value="">Отдельно от смены</option>'+state.data.days.filter(d=>monthOf(d.date)===selectedMonth).sort((a,b)=>b.date.localeCompare(a.date)).map(d=>`<option value="${d.id}">${fmtDate(d.date)} — ${d.tariff==='city'?'Город':'Загород'}</option>`).join('')}
-function saveExtra(e){e.preventDefault();const x={id:uid('extra'),date:$('extraDate').value,amount:+$('extraAmount').value||0,reason:$('extraReason').value.trim(),dayId:$('extraDayId').value||null,actual:null};if(!x.amount||!x.reason){toast('Введи сумму и причину');return}state.data.extras.push(x);save();closeModal('extraModal');renderAll();toast('Доплата добавлена')}
-function openCar(id=null){const c=state.data.cars.find(x=>x.id===id);$('carForm').dataset.id=id||'';$('carDate').value=c?.date||new Date().toISOString().slice(0,10);$('carKm').value=c?.km??'';$('carAmount').value=c?.actual??c?.amount??'';$('carNote').value=c?.note||'Перегон автомобиля';openModal('carModal')}
-function saveCar(e){e.preventDefault();const id=$('carForm').dataset.id;const old=state.data.cars.find(x=>x.id===id);const c={id:id||uid('car'),date:$('carDate').value,km:+$('carKm').value||0,amount:$('carAmount').value===''?calcCar(+$('carKm').value||0):+$('carAmount').value,note:$('carNote').value.trim()||'Перегон автомобиля',actual:old?.actual??null};if(id){Object.assign(old,c)}else state.data.cars.push(c);save();closeModal('carModal');renderAll();toast('Перегон добавлен')}
-function renderTariffs(){renderTariffFields('city','cityFields',{minWeekday:'Минимум будни',minWeekend:'Минимум выходные',pointWeekday:'Точка будни',pointWeekend:'Точка выходные',order:'Заказ',lot:'ЛОТ',multi4Weekday:'Мульти до 4 будни',multi4Weekend:'Мульти до 4 выходные',multi5Weekday:'Мульти 5+ будни',multi5Weekend:'Мульти 5+ выходные'});renderTariffFields('country','countryFields',{minWeekday:'Минимум будни',minWeekend:'Минимум выходные',pointWeekday:'Точка будни',pointWeekend:'Точка выходные',order:'Заказ',lot:'ЛОТ',multi4Weekday:'Мульти до 4 будни',multi4Weekend:'Мульти до 4 выходные',multi5Weekday:'Мульти 5+ будни',multi5Weekend:'Мульти 5+ выходные'});renderTariffFields('car','carFields',{'4_20':'4–20 км','21_50':'21–50 км','51_80':'51–80 км','81_100':'81–100 км','101_120':'101–120 км','121_plus':'121+ км'})}
-function renderTariffFields(group,id,labels){$(id).innerHTML=Object.entries(labels).map(([k,label])=>`<label class="tariff-field"><span>${label}</span><input type="number" min="0" step="1" data-tariff="${group}.${k}" value="${state.tariffs[group][k]}"></label>`).join('')}
-function renderPayments(){const groups=paymentGroups(selectedMonth);$('paymentsList').innerHTML=groups.map(g=>{const received=g.days.filter(d=>d.actual!=null&&d.actual!=='').reduce((s,d)=>s+Number(d.actual),0);const expected=g.expected;const items=[];g.days.forEach(d=>items.push(`<div class="payment-item"><div><b>${fmtDate(d.date)} · смена</b><small>${d.points||0} точек · ${d.orders||0} заказов · ${d.lots||0} ЛОТов${d.mgt?` · ${d.mgt} МГТ`:''}</small></div><div class="${d.actual!=null&&d.actual!==''?'fact':'expect'}">${money(d.actual??calcDay(d).calculated)}</div></div>`));g.extras.forEach(e=>items.push(`<div class="payment-item"><div><b>${fmtDate(e.date)} · доплата</b><small>${escapeHtml(e.reason)}</small></div><div class="${e.actual!=null?'fact':'expect'}">${money(e.actual??e.amount)}</div></div>`));g.cars.forEach(c=>items.push(`<div class="payment-item"><div><b>${fmtDate(c.date)} · 🚗 перегон</b><small>${c.km} км · ${escapeHtml(c.note||'')}</small></div><div class="${c.actual!=null?'fact':'expect'}">${money(c.actual??c.amount??calcCar(c.km))}</div></div>`));return `<article class="payment-group"><div class="payment-group-head"><div><b>${g.label} сентября</b><small>${g.window}</small></div><div class="payment-total"><b>${money(expected)}</b><small>ожидаем</small></div></div>${items.join('')||'<div class="empty">Нет начислений</div>'}<div class="payment-group-head"><div><small>Фактически внесено</small></div><div class="payment-total"><b style="color:var(--green)">${money(received)}</b></div></div></article>`}).join('')}
-function openActuals(){actualQueue=state.data.days.filter(d=>monthOf(d.date)===selectedMonth).sort((a,b)=>a.date.localeCompare(b.date));if(!actualQueue.length){toast('В этом месяце нет дней');return}actualIndex=0;renderActual();openModal('actualModal')}
-function renderActual(){const d=actualQueue[actualIndex];$('actualCounter').textContent=`${actualIndex+1} / ${actualQueue.length}`;$('actualBar').style.width=((actualIndex+1)/actualQueue.length*100)+'%';$('actualTitle').textContent=`${fmtDate(d.date)} — ${d.tariff==='city'?'Город':'Загород'}`;$('actualDateText').textContent=`${d.points||0} точек · ${d.orders||0} заказов · ${d.lots||0} ЛОТов${d.mgt?` · ${d.mgt} МГТ`:''}`;$('actualCalc').innerHTML=`Расчётная сумма<strong>${money(calcDay(d).calculated)}</strong>`;$('actualAmount').value=d.actual??'';$('actualNext').textContent=actualIndex===actualQueue.length-1?'Готово':'Далее'}
-function saveActualAndNext(){const d=actualQueue[actualIndex];const val=$('actualAmount').value.trim();if(val!=='')d.actual=+val;else d.actual=null;save();if(actualIndex<actualQueue.length-1){actualIndex++;renderActual()}else{closeModal('actualModal');renderAll();toast('Фактические суммы сохранены')}}
-function editActualBack(){if(actualIndex>0){actualIndex--;renderActual()}}
-function renderAll(){renderDashboard();renderDays();renderPayments();renderTariffs();$('daysMonthPicker').value=selectedMonth}
-function exportData(){const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`atlant-earnings-${currentMonth()}.json`;a.click();URL.revokeObjectURL(a.href)}
-function importData(file){const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result);if(!x.data||!x.tariffs)throw new Error();Object.assign(state,x);save();renderAll();toast('Данные импортированы')}catch{toast('Не удалось импортировать файл')}};r.readAsText(file)}
-function toast(msg){$('toast').textContent=msg;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2200)}
-function checkSalaryNotification(){const d=new Date();const day=d.getDate();const inFirst=day>=25&&day<=30;const inSecond=day>=15&&day<=20;const relevant=inFirst||inSecond;if(!relevant)return;const period=inFirst?'1–15':'16–конец';const key=`salary-note-${d.getFullYear()}-${d.getMonth()+1}-${period}`;if(localStorage.getItem(key)==='closed')return;$('notificationText').textContent=`Сейчас период выплаты за ${period}. Если деньги уже пришли на карту, внеси фактические суммы по дням.`;$('salaryNotification').classList.remove('hidden');$('notificationGo').onclick=()=>{closeNotification();showPage('daysPage');openActuals()};$('closeNotification').onclick=closeNotification;function closeNotification(){localStorage.setItem(key,'closed');$('salaryNotification').classList.add('hidden')}}
-// Events
+const STORAGE = 'atlant-earnings-v4';
 
-document.addEventListener('click',e=>{const nav=e.target.closest('[data-page]');if(nav){showPage(nav.dataset.page);return}const close=e.target.closest('[data-close]');if(close){closeModal(close.dataset.close);return}const n=e.target.closest('[data-number]');if(n){const input=$(n.dataset.number);let v=parseInt(input.value,10);if(Number.isNaN(v))v=0;v=Math.max(0,v+Number(n.dataset.delta));input.value=v;input.dispatchEvent(new Event('input'));return}const ed=e.target.closest('[data-edit-day]');if(ed){resetDayForm(state.data.days.find(d=>d.id===ed.dataset.editDay));openModal('dayModal');return}const del=e.target.closest('[data-delete-day]');if(del&&confirm('Удалить этот день?')){state.data.days=state.data.days.filter(d=>d.id!==del.dataset.deleteDay);save();renderAll();return}const ec=e.target.closest('[data-edit-car]');if(ec){openCar(ec.dataset.editCar);return}const dc=e.target.closest('[data-delete-car]');if(dc&&confirm('Удалить перегон?')){state.data.cars=state.data.cars.filter(c=>c.id!==dc.dataset.deleteCar);save();renderAll();return}const ee=e.target.closest('[data-edit-extra]');if(ee){const x=state.data.extras.find(e=>e.id===ee.dataset.editExtra);if(x){openExtra(x.date,x.dayId);$('extraAmount').value=x.amount;$('extraReason').value=x.reason;$('extraForm').dataset.id=x.id}return}const de=e.target.closest('[data-delete-extra]');if(de&&confirm('Удалить доплату?')){state.data.extras=state.data.extras.filter(x=>x.id!==de.dataset.deleteExtra);save();renderAll();return}});
-$('addDayBtn').onclick=()=>{resetDayForm();openModal('dayModal')};$('quickAddDay').onclick=()=>{$('addDayBtn').click()};$('bottomAdd').onclick=()=>{$('addDayBtn').click()};$('quickExtra').onclick=()=>openExtra();$('quickCar').onclick=()=>openCar();$('addCarBtn').onclick=()=>openCar();$('editActualsBtn').onclick=openActuals;
-$('dayForm').onsubmit=saveDay;$('extraForm').onsubmit=saveExtra;$('carForm').onsubmit=saveCar;
-$('wizardNext').onclick=()=>{if(dayStep<5){dayStep++;renderDayStep()}};$('wizardBack').onclick=()=>{if(dayStep>1){dayStep--;renderDayStep()}};['dayDate','dayTariff','dayPoints','dayOrders','dayLots','dayMgt','dayMulti4','dayMulti5','dayExtraAdd'].forEach(id=>$(id).addEventListener('input',renderDayStep));
-$('actualNext').onclick=saveActualAndNext;$('actualBack').onclick=editActualBack;
-$('prevMonth').onclick=()=>{selectedMonth=shiftMonth(selectedMonth,-1);$('daysMonthPicker').value=selectedMonth;renderAll()};$('nextMonth').onclick=()=>{selectedMonth=shiftMonth(selectedMonth,1);$('daysMonthPicker').value=selectedMonth;renderAll()};$('daysPrevMonth').onclick=()=>{$('prevMonth').click()};$('daysNextMonth').onclick=()=>{$('nextMonth').click()};$('daysMonthPicker').onchange=e=>{selectedMonth=e.target.value;renderAll()};
-$('resetTariffs').onclick=()=>{if(confirm('Сбросить все тарифы к исходным?')){state.tariffs=structuredClone(DEFAULT_TARIFFS);save();renderAll();}};
-document.addEventListener('change',e=>{const t=e.target.dataset.tariff;if(t){const [g,k]=t.split('.');state.tariffs[g][k]=Number(e.target.value)||0;save();renderDashboard();renderDays();renderPayments()}});
-$('exportBtn').onclick=exportData;$('exportBtnProfile').onclick=exportData;$('importFile').onchange=e=>e.target.files[0]&&importData(e.target.files[0]);$('importFileProfile').onchange=e=>e.target.files[0]&&importData(e.target.files[0]);$('resetAllBtn').onclick=()=>{if(confirm('Удалить все дни, доплаты и перегоны? Тарифы тоже будут сброшены.')){localStorage.removeItem(STORAGE);location.reload()}};
-load();$('daysMonthPicker').value=selectedMonth;renderAll();checkSalaryNotification();
+const DEFAULT_TARIFFS = {
+    city: {
+        minWeekday: 4400,
+        minWeekend: 4500,
+
+        pointWeekday: 150,
+        pointWeekend: 155,
+
+        order: 5,
+        lot: 27,
+
+        multi4Weekday: 150,
+        multi4Weekend: 155,
+
+        multi5Weekday: 42,
+        multi5Weekend: 42
+    },
+
+    country: {
+        minWeekday: 3950,
+        minWeekend: 4050,
+
+        pointWeekday: 140,
+        pointWeekend: 150,
+
+        order: 4,
+        lot: 48,
+
+        multi4Weekday: 140,
+        multi4Weekend: 150,
+
+        multi5Weekday: 38,
+        multi5Weekend: 38
+    },
+
+    car: {
+        '4_20': 2000,
+        '21_50': 2100,
+        '51_80': 2200,
+        '81_100': 2300,
+        '101_120': 2400,
+        '121_plus': 2500
+    }
+};
+
+
+const state = {
+    data: {
+        days: [],
+        cars: [],
+        extras: []
+    },
+
+    tariffs: structuredClone(DEFAULT_TARIFFS)
+};
+
+
+let selectedMonth = currentMonth();
+
+let dayStep = 1;
+
+let actualQueue = [];
+
+let actualIndex = 0;
+
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+const $ = id => document.getElementById(id);
+
+
+const money = n => {
+    return new Intl.NumberFormat('ru-RU')
+        .format(Math.round(n || 0)) + ' ₽';
+};
+
+
+function currentMonth() {
+
+    const d = new Date();
+
+    return `${d.getFullYear()}-${String(
+        d.getMonth() + 1
+    ).padStart(2, '0')}`;
+}
+
+
+function uid(prefix = 'id') {
+
+    return (
+        prefix +
+        '_' +
+        Date.now().toString(36) +
+        '_' +
+        Math.random().toString(36).slice(2, 7)
+    );
+}
+
+
+/* =========================================================
+   STORAGE
+========================================================= */
+
+function load() {
+
+    try {
+
+        const raw = localStorage.getItem(STORAGE);
+
+        if (raw) {
+
+            const x = JSON.parse(raw);
+
+            Object.assign(state, x);
+
+            state.data ||= {
+                days: [],
+                cars: [],
+                extras: []
+            };
+
+            state.data.days ||= [];
+            state.data.cars ||= [];
+            state.data.extras ||= [];
+
+            state.tariffs ||= structuredClone(
+                DEFAULT_TARIFFS
+            );
+        }
+
+    } catch (e) {
+
+        console.error(e);
+
+    }
+
+}
+
+
+function save() {
+
+    localStorage.setItem(
+        STORAGE,
+        JSON.stringify(state)
+    );
+
+}
+
+
+/* =========================================================
+   DATE
+========================================================= */
+
+function isWeekend(date) {
+
+    const d = new Date(
+        date + 'T12:00:00'
+    );
+
+    return (
+        d.getDay() === 0 ||
+        d.getDay() === 6
+    );
+}
+
+
+function monthOf(date) {
+
+    return date?.slice(0, 7);
+
+}
+
+
+function fmtDate(date) {
+
+    return new Date(
+        date + 'T12:00:00'
+    ).toLocaleDateString(
+        'ru-RU',
+        {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        }
+    );
+
+}
+
+
+/* =========================================================
+   РАСЧЁТ ПЕРЕГОНА
+========================================================= */
+
+function calcCar(km) {
+
+    km = Number(km) || 0;
+
+    if (km >= 4 && km <= 20) {
+        return state.tariffs.car['4_20'];
+    }
+
+    if (km <= 50) {
+        return state.tariffs.car['21_50'];
+    }
+
+    if (km <= 80) {
+        return state.tariffs.car['51_80'];
+    }
+
+    if (km <= 100) {
+        return state.tariffs.car['81_100'];
+    }
+
+    if (km <= 120) {
+        return state.tariffs.car['101_120'];
+    }
+
+    if (km > 120) {
+        return state.tariffs.car['121_plus'];
+    }
+
+    return 0;
+}
+
+
+/* =========================================================
+   РАСЧЁТ СМЕНЫ
+========================================================= */
+
+function calcDay(d) {
+
+    const t =
+        state.tariffs[d.tariff || 'city'];
+
+    const weekend =
+        isWeekend(d.date);
+
+    const point =
+        weekend
+            ? t.pointWeekend
+            : t.pointWeekday;
+
+    const min =
+        weekend
+            ? t.minWeekend
+            : t.minWeekday;
+
+    const multi4 =
+        weekend
+            ? t.multi4Weekend
+            : t.multi4Weekday;
+
+    const multi5 =
+        weekend
+            ? t.multi5Weekend
+            : t.multi5Weekday;
+
+
+    const base =
+        (d.points || 0) * point +
+        (d.orders || 0) * t.order +
+        (d.lots || 0) * t.lot +
+        (d.multi4 || 0) * multi4 +
+        (d.multi5 || 0) * multi5;
+
+
+    const calculated =
+        Math.max(min, base) +
+        (d.extraAmount || 0);
+
+
+    return {
+        base,
+        min,
+        extra: d.extraAmount || 0,
+        calculated,
+        weekend
+    };
+
+}
+
+
+/* =========================================================
+   ДАННЫЕ МЕСЯЦА
+========================================================= */
+
+function monthData(month) {
+
+    const days =
+        state.data.days.filter(
+            d => monthOf(d.date) === month
+        );
+
+    const cars =
+        state.data.cars.filter(
+            c => monthOf(c.date) === month
+        );
+
+    const extras =
+        state.data.extras.filter(
+            e => monthOf(e.date) === month
+        );
+
+
+    return {
+        days,
+        cars,
+        extras
+    };
+
+}
+
+
+/* =========================================================
+   ОБЩИЕ ИТОГИ
+========================================================= */
+
+function totals(month) {
+
+    const {
+        days,
+        cars,
+        extras
+    } = monthData(month);
+
+
+    let calculated = 0;
+
+    let received = 0;
+
+    let expected = 0;
+
+
+    /* Смены */
+
+    days.forEach(d => {
+
+        const c =
+            calcDay(d).calculated;
+
+
+        if (
+            d.actual !== null &&
+            d.actual !== undefined &&
+            d.actual !== ''
+        ) {
+
+            received +=
+                Number(d.actual) || 0;
+
+        } else {
+
+            expected += c;
+
+        }
+
+
+        calculated += c;
+
+    });
+
+
+    /* Отдельные доплаты */
+
+    extras.forEach(e => {
+
+        if (
+            e.actual !== null &&
+            e.actual !== undefined &&
+            e.actual !== ''
+        ) {
+
+            received +=
+                Number(e.actual) || 0;
+
+        } else {
+
+            expected +=
+                Number(e.amount) || 0;
+
+        }
+
+
+        calculated +=
+            Number(e.amount) || 0;
+
+    });
+
+
+    /* Перегоны */
+
+    cars.forEach(c => {
+
+        const amount =
+            c.actual ??
+            c.amount ??
+            calcCar(c.km);
+
+
+        calculated +=
+            Number(amount) || 0;
+
+
+        if (
+            c.actual !== null &&
+            c.actual !== undefined &&
+            c.actual !== ''
+        ) {
+
+            received +=
+                Number(c.actual) || 0;
+
+        } else {
+
+            expected +=
+                Number(amount) || 0;
+
+        }
+
+    });
+
+
+    return {
+
+        calculated,
+
+        received,
+
+        expected,
+
+        car: cars.reduce(
+            (sum, c) =>
+                sum +
+                Number(
+                    c.actual ??
+                    c.amount ??
+                    calcCar(c.km) ||
+                    0
+                ),
+            0
+        )
+
+    };
+
+}
+
+
+/* =========================================================
+   НАВИГАЦИЯ
+========================================================= */
+
+function showPage(id) {
+
+    document
+        .querySelectorAll('.page')
+        .forEach(page => {
+
+            page.classList.toggle(
+                'active',
+                page.id === id
+            );
+
+        });
+
+
+    document
+        .querySelectorAll('.nav-item')
+        .forEach(nav => {
+
+            nav.classList.toggle(
+                'active',
+                nav.dataset.page === id
+            );
+
+        });
+
+
+    if (id === 'daysPage') {
+        renderDays();
+    }
+
+
+    if (id === 'paymentsPage') {
+        renderPayments();
+    }
+
+
+    if (id === 'tariffsPage') {
+        renderTariffs();
+    }
+
+
+    if (id === 'homePage') {
+        renderDashboard();
+    }
+
+}
+
+
+/* =========================================================
+   ПЕРЕКЛЮЧЕНИЕ МЕСЯЦА
+========================================================= */
+
+function shiftMonth(month, delta) {
+
+    const [
+        year,
+        monthNumber
+    ] = month
+        .split('-')
+        .map(Number);
+
+
+    const date =
+        new Date(
+            year,
+            monthNumber - 1 + delta,
+            1
+        );
+
+
+    return `${date.getFullYear()}-${String(
+        date.getMonth() + 1
+    ).padStart(2, '0')}`;
+
+}
+
+
+/* =========================================================
+   ГЛАВНАЯ
+========================================================= */
+
+function renderDashboard() {
+
+    const t =
+        totals(selectedMonth);
+
+
+    $('monthLabel').textContent =
+        new Date(
+            selectedMonth + '-01T12:00:00'
+        ).toLocaleDateString(
+            'ru-RU',
+            {
+                month: 'long',
+                year: 'numeric'
+            }
+        );
+
+
+    $('dashboardTotal').textContent =
+        money(t.calculated);
+
+
+    $('dashboardReceived').textContent =
+        money(t.received);
+
+
+    $('dashboardExpected').textContent =
+        money(t.expected);
+
+
+    const groups =
+        paymentGroups(selectedMonth);
+
+
+    $('dashboardPeriods').innerHTML =
+        groups
+            .map(g => {
+
+                return `
+                    <div class="period-mini">
+
+                        <div>
+
+                            <b>
+                                ${g.label}
+                            </b>
+
+                            <small>
+                                ${g.window}
+                            </small>
+
+                        </div>
+
+                        <strong>
+                            ${money(g.expected)}
+                        </strong>
+
+                    </div>
+                `;
+
+            })
+            .join('') ||
+
+        '<div class="empty">Пока нет начислений</div>';
+
+}
+
+
+/* =========================================================
+   ПЕРИОДЫ ВЫПЛАТ
+========================================================= */
+
+function paymentGroups(month) {
+
+    const [
+        year,
+        monthNumber
+    ] = month
+        .split('-')
+        .map(Number);
+
+
+    const daysInMonth =
+        new Date(
+            year,
+            monthNumber,
+            0
+        ).getDate();
+
+
+    const periods = [
+
+        {
+            label: '1–15',
+
+            from:
+                `${month}-01`,
+
+            to:
+                `${month}-15`,
+
+            window:
+                `выплата 25–30 ${
+                    new Date(
+                        year,
+                        monthNumber - 1,
+                        1
+                    ).toLocaleDateString(
+                        'ru-RU',
+                        {
+                            month: 'long'
+                        }
+                    )
+                }`
+        },
+
+
+        {
+            label: '16–конец',
+
+            from:
+                `${month}-16`,
+
+            to:
+                `${month}-${String(
+                    daysInMonth
+                ).padStart(2, '0')}`,
+
+            window:
+                `выплата 15–20 ${
+                    new Date(
+                        year,
+                        monthNumber,
+                        1
+                    ).toLocaleDateString(
+                        'ru-RU',
+                        {
+                            month: 'long'
+                        }
+                    )
+                }`
+        }
+
+    ];
+
+
+    return periods.map(period => {
+
+        const days =
+            state.data.days.filter(
+                d =>
+                    d.date >= period.from &&
+                    d.date <= period.to
+            );
+
+
+        const extras =
+            state.data.extras.filter(
+                e =>
+                    e.date >= period.from &&
+                    e.date <= period.to
+            );
+
+
+        const cars =
+            state.data.cars.filter(
+                c =>
+                    c.date >= period.from &&
+                    c.date <= period.to
+            );
+
+
+        let expected = 0;
+
+
+        days.forEach(d => {
+
+            if (
+                d.actual == null ||
+                d.actual === ''
+            ) {
+
+                expected +=
+                    calcDay(d).calculated;
+
+            }
+
+        });
+
+
+        extras.forEach(e => {
+
+            if (
+                e.actual == null ||
+                e.actual === ''
+            ) {
+
+                expected +=
+                    Number(e.amount) || 0;
+
+            }
+
+        });
+
+
+        cars.forEach(c => {
+
+            if (
+                c.actual == null ||
+                c.actual === ''
+            ) {
+
+                expected +=
+                    Number(
+                        c.amount ??
+                        calcCar(c.km)
+                    ) || 0;
+
+            }
+
+        });
+
+
+        return {
+            ...period,
+            days,
+            extras,
+            cars,
+            expected
+        };
+
+    });
+
+}
+
+
+/* =========================================================
+   СПИСОК ДНЕЙ
+========================================================= */
+
+function renderDays() {
+
+    const month =
+        $('daysMonthPicker').value ||
+        selectedMonth;
+
+
+    selectedMonth = month;
+
+
+    const {
+        days,
+        cars,
+        extras
+    } = monthData(month);
+
+
+    const all = [];
+
+
+    days.forEach(d => {
+
+        all.push({
+            date: d.date,
+            type: 'day',
+            data: d
+        });
+
+    });
+
+
+    cars.forEach(c => {
+
+        all.push({
+            date: c.date,
+            type: 'car',
+            data: c
+        });
+
+    });
+
+
+    extras
+        .filter(e => !e.dayId)
+        .forEach(e => {
+
+            all.push({
+                date: e.date,
+                type: 'extra',
+                data: e
+            });
+
+        });
+
+
+    all.sort(
+        (a, b) =>
+            b.date.localeCompare(a.date)
+    );
+
+
+    if (!all.length) {
+
+        $('daysList').innerHTML = `
+            <div class="empty">
+                За этот месяц пока ничего нет.<br>
+                Добавь день, доплату или перегон.
+            </div>
+        `;
+
+        return;
+
+    }
+
+
+    $('daysList').innerHTML =
+        all
+            .map(x => {
+
+                if (x.type === 'day') {
+                    return dayCard(x.data);
+                }
+
+                if (x.type === 'car') {
+                    return carCard(x.data);
+                }
+
+                return extraCard(x.data);
+
+            })
+            .join('');
+
+}
+
+
+/* =========================================================
+   КАРТОЧКА ДНЯ
+========================================================= */
+
+function dayCard(d) {
+
+    const c =
+        calcDay(d);
+
+
+    const fact =
+        d.actual != null &&
+        d.actual !== '';
+
+
+    const linked =
+        state.data.extras.filter(
+            e => e.dayId === d.id
+        );
+
+
+    return `
+        <article class="day-card">
+
+            <div class="day-head">
+
+                <div>
+
+                    <div class="day-date">
+                        ${fmtDate(d.date)}
+                    </div>
+
+                    <div class="day-meta">
+                        ${d.tariff === 'city'
+                            ? 'Город'
+                            : 'Загород'}
+                        ·
+                        ${c.weekend
+                            ? 'выходной'
+                            : 'будний'}
+                    </div>
+
+                </div>
+
+
+                <div class="day-money">
+
+                    ${money(
+                        fact
+                            ? d.actual
+                            : c.calculated
+                    )}
+
+                    <small>
+                        ${fact
+                            ? 'факт'
+                            : 'расчёт'}
+                    </small>
+
+                </div>
+
+            </div>
+
+
+            <div class="day-stats">
+
+                <div class="stat">
+                    <b>${d.points || 0}</b>
+                    <span>точек</span>
+                </div>
+
+                <div class="stat">
+                    <b>${d.orders || 0}</b>
+                    <span>заказов</span>
+                </div>
+
+                <div class="stat">
+                    <b>${d.lots || 0}</b>
+                    <span>ЛОТов</span>
+                </div>
+
+                <div class="stat">
+                    <b>${d.mgt || 0}</b>
+                    <span>МГТ</span>
+                </div>
+
+                <div class="stat">
+                    <b>
+                        ${(d.multi4 || 0) +
+                         (d.multi5 || 0)}
+                    </b>
+                    <span>мульти</span>
+                </div>
+
+            </div>
+
+
+            ${
+                linked
+                    .map(e => `
+                        <div class="extra-line">
+                            + ${money(e.amount)}
+                            ·
+                            ${escapeHtml(e.reason)}
+                        </div>
+                    `)
+                    .join('')
+            }
+
+
+            ${
+                d.note
+                    ? `
+                        <div class="day-meta">
+                            ${escapeHtml(d.note)}
+                        </div>
+                    `
+                    : ''
+            }
+
+
+            <div class="day-bottom">
+
+                <div>
+
+                    ${
+                        fact
+
+                            ? `
+                                <span class="actual">
+                                    ✓ Фактически:
+                                    ${money(d.actual)}
+                                </span>
+                            `
+
+                            : `
+                                <span class="muted">
+                                    Факт ещё не внесён
+                                </span>
+                            `
+                    }
+
+                </div>
+
+
+                <div class="day-actions">
+
+                    <button
+                        class="edit"
+                        data-edit-day="${d.id}"
+                    >
+                        Изменить
+                    </button>
+
+
+                    <button
+                        class="edit"
+                        data-delete-day="${d.id}"
+                    >
+                        ×
+                    </button>
+
+                </div>
+
+            </div>
+
+        </article>
+    `;
+
+}
+
+
+/* =========================================================
+   КАРТОЧКА ПЕРЕГОНА
+========================================================= */
+
+function carCard(c) {
+
+    const amount =
+        c.actual ??
+        c.amount ??
+        calcCar(c.km);
+
+
+    return `
+        <article class="day-card car-card">
+
+            <div class="day-head">
+
+                <div>
+
+                    <div class="day-date">
+                        ${fmtDate(c.date)}
+                        · 🚗 Перегон
+                    </div>
+
+                    <div class="day-meta car-badge">
+                        ${c.km} км
+                        ·
+                        ${escapeHtml(
+                            c.note || 'перегон'
+                        )}
+                    </div>
+
+                </div>
+
+
+                <div class="day-money">
+
+                    ${money(amount)}
+
+                    <small>
+                        ${c.actual != null
+                            ? 'факт'
+                            : 'расчёт'}
+                    </small>
+
+                </div>
+
+            </div>
+
+
+            <div class="day-bottom">
+
+                <span class="muted">
+                    Отдельное начисление,
+                    не смена
+                </span>
+
+
+                <div class="day-actions">
+
+                    <button
+                        class="edit"
+                        data-edit-car="${c.id}"
+                    >
+                        Изменить
+                    </button>
+
+
+                    <button
+                        class="edit"
+                        data-delete-car="${c.id}"
+                    >
+                        ×
+                    </button>
+
+                </div>
+
+            </div>
+
+        </article>
+    `;
+
+}
+
+
+/* =========================================================
+   КАРТОЧКА ДОПЛАТЫ
+========================================================= */
+
+function extraCard(e) {
+
+    return `
+        <article class="day-card">
+
+            <div class="day-head">
+
+                <div>
+
+                    <div class="day-date">
+                        ${fmtDate(e.date)}
+                        · ₽ Доплата
+                    </div>
+
+                    <div class="day-meta">
+                        Отдельно от смены
+                        ${
+                            e.dayId
+                                ? ' · привязана к смене'
+                                : ''
+                        }
+                    </div>
+
+                </div>
+
+
+                <div class="day-money">
+
+                    ${money(
+                        e.actual ??
+                        e.amount
+                    )}
+
+                    <small>
+                        ${e.actual != null
+                            ? 'факт'
+                            : 'ожидаем'}
+                    </small>
+
+                </div>
+
+            </div>
+
+
+            <div class="extra-line">
+                ${escapeHtml(e.reason)}
+            </div>
+
+
+            <div class="day-bottom">
+
+                <span class="muted">
+                    Отдельное начисление
+                </span>
+
+
+                <div class="day-actions">
+
+                    <button
+                        class="edit"
+                        data-edit-extra="${e.id}"
+                    >
+                        Изменить
+                    </button>
+
+
+                    <button
+                        class="edit"
+                        data-delete-extra="${e.id}"
+                    >
+                        ×
+                    </button>
+
+                </div>
+
+            </div>
+
+        </article>
+    `;
+
+}
+
+
+/* =========================================================
+   HTML ESCAPE
+========================================================= */
+
+function escapeHtml(s = '') {
+
+    return String(s).replace(
+        /[&<>'"]/g,
+        c => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            "'": '&#039;',
+            '"': '&quot;'
+        }[c])
+    );
+
+}
+
+
+/* =========================================================
+   MODALS
+========================================================= */
+
+function openModal(id) {
+
+    $(id).classList.remove('hidden');
+
+}
+
+
+function closeModal(id) {
+
+    $(id).classList.add('hidden');
+
+}
+
+
+/* =========================================================
+   ФОРМА ДНЯ
+========================================================= */
+
+function resetDayForm(d = null) {
+
+    $('dayId').value =
+        d?.id || '';
+
+
+    $('dayDate').value =
+        d?.date ||
+        new Date()
+            .toISOString()
+            .slice(0, 10);
+
+
+    $('dayTariff').value =
+        d?.tariff ||
+        'city';
+
+
+    $('dayNote').value =
+        d?.note ||
+        '';
+
+
+    $('dayPoints').value =
+        d?.points ?? 0;
+
+
+    $('dayOrders').value =
+        d?.orders ?? 0;
+
+
+    $('dayLots').value =
+        d?.lots ?? 0;
+
+
+    $('dayMgt').value =
+        d?.mgt ?? 0;
+
+
+    $('dayMulti4').value =
+        d?.multi4 ?? 0;
+
+
+    $('dayMulti5').value =
+        d?.multi5 ?? 0;
+
+
+    $('dayExtraAdd').value =
+        d?.extraAmount ?? 0;
+
+
+    $('dayExtraReason').value =
+        d?.extraReason || '';
+
+
+    $('dayModalTitle').textContent =
+        d
+            ? 'Изменить день'
+            : 'Добавить день';
+
+
+    $('wizardLabel').textContent =
+        d
+            ? 'РЕДАКТИРОВАНИЕ'
+            : 'НОВАЯ СМЕНА';
+
+
+    dayStep = 1;
+
+    renderDayStep();
+
+}
+
+
+/* =========================================================
+   ШАГИ ФОРМЫ
+========================================================= */
+
+function renderDayStep() {
+
+    document
+        .querySelectorAll(
+            '#dayModal .step'
+        )
+        .forEach(step => {
+
+            step.classList.toggle(
+                'active',
+                Number(
+                    step.dataset.step
+                ) === dayStep
+            );
+
+        });
+
+
+    document
+        .querySelectorAll(
+            '#dayModal .progress i'
+        )
+        .forEach((item, index) => {
+
+            item.classList.toggle(
+                'active',
+                index < dayStep
+            );
+
+        });
+
+
+    $('wizardBack').disabled =
+        dayStep === 1;
+
+
+    $('wizardNext').classList.toggle(
+        'hidden',
+        dayStep === 5
+    );
+
+
+    $('wizardSave').classList.toggle(
+        'hidden',
+        dayStep !== 5
+    );
+
+
+    const date =
+        $('dayDate').value;
+
+
+    if (date) {
+
+        const weekend =
+            isWeekend(date);
+
+
+        const t =
+            $('dayTariff').value === 'city'
+                ? state.tariffs.city
+                : state.tariffs.country;
+
+
+        $('calendarRule').innerHTML = `
+            <strong>
+                ${
+                    weekend
+                        ? 'Выходной день'
+                        : 'Будний день'
+                }
+            </strong>
+
+            Минимум по тарифу:
+            ${
+                money(
+                    weekend
+                        ? t.minWeekend
+                        : t.minWeekday
+                )
+            }
+        `;
+
+    }
+
+
+    $('dayPreview').innerHTML =
+        previewDay();
+
+}
+
+
+/* =========================================================
+   ПРЕДПРОСМОТР ДНЯ
+========================================================= */
+
+function previewDay() {
+
+    const d = {
+
+        date:
+            $('dayDate').value,
+
+        tariff:
+            $('dayTariff').value,
+
+        points:
+            +$('dayPoints').value || 0,
+
+        orders:
+            +$('dayOrders').value || 0,
+
+        lots:
+            +$('dayLots').value || 0,
+
+        mgt:
+            +$('dayMgt').value || 0,
+
+        multi4:
+            +$('dayMulti4').value || 0,
+
+        multi5:
+            +$('dayMulti5').value || 0,
+
+        extraAmount:
+            +$('dayExtraAdd').value || 0
+
+    };
+
+
+    const c =
+        calcDay(d);
+
+
+    return `
+
+        <div>
+            Точки:
+            <b>${d.points}</b>
+            ·
+            Заказы:
+            <b>${d.orders}</b>
+            ·
+            ЛОТы:
+            <b>${d.lots}</b>
+        </div>
+
+
+        <div>
+            МГТ:
+            <b>${d.mgt}</b>
+            ·
+            Мульти:
+            <b>${d.multi4 + d.multi5}</b>
+        </div>
+
+
+        <div>
+            База до минимума:
+            ${money(c.base)}
+        </div>
+
+
+        <div>
+            Доплата:
+            ${money(c.extra)}
+        </div>
+
+
+        <div>
+            Итого по расчёту
+        </div>
+
+
+        <strong>
+            ${money(c.calculated)}
+        </strong>
+
+    `;
+
+}
+
+
+/* =========================================================
+   СОБОР ДНЯ
+========================================================= */
+
+function collectDay() {
+
+    return {
+
+        id:
+            $('dayId').value ||
+            uid('day'),
+
+        date:
+            $('dayDate').value,
+
+        tariff:
+            $('dayTariff').value,
+
+        note:
+            $('dayNote').value.trim(),
+
+        points:
+            +$('dayPoints').value || 0,
+
+        orders:
+            +$('dayOrders').value || 0,
+
+        lots:
+            +$('dayLots').value || 0,
+
+        mgt:
+            +$('dayMgt').value || 0,
+
+        multi4:
+            +$('dayMulti4').value || 0,
+
+        multi5:
+            +$('dayMulti5').value || 0,
+
+        extraAmount:
+            +$('dayExtraAdd').value || 0,
+
+        extraReason:
+            $('dayExtraReason')
+                .value
+                .trim(),
+
+        actual:
+            (() => {
+
+                const old =
+                    state.data.days.find(
+                        x =>
+                            x.id ===
+                            $('dayId').value
+                    );
+
+                return old
+                    ? old.actual
+                    : null;
+
+            })()
+
+    };
+
+}
+
+
+/* =========================================================
+   СОХРАНЕНИЕ ДНЯ
+========================================================= */
+
+function saveDay(e) {
+
+    e.preventDefault();
+
+
+    const d =
+        collectDay();
+
+
+    if (
+        d.extraAmount > 0 &&
+        !d.extraReason
+    ) {
+
+        toast(
+            'Укажи причину доплаты'
+        );
+
+        dayStep = 4;
+
+        renderDayStep();
+
+        return;
+
+    }
+
+
+    const index =
+        state.data.days.findIndex(
+            x => x.id === d.id
+        );
+
+
+    if (index >= 0) {
+
+        state.data.days[index] =
+            d;
+
+    } else {
+
+        state.data.days.push(d);
+
+    }
+
+
+    save();
+
+    closeModal('dayModal');
+
+    renderAll();
+
+    toast('День сохранён');
+
+}
+
+
+/* =========================================================
+   ОТДЕЛЬНАЯ ДОПЛАТА
+========================================================= */
+
+function openExtra(
+    prefDate = selectedMonth + '-01',
+    dayId = ''
+) {
+
+    populateExtraDays();
+
+
+    $('extraDate').value =
+        prefDate;
+
+
+    $('extraAmount').value =
+        '';
+
+
+    $('extraReason').value =
+        '';
+
+
+    $('extraDayId').value =
+        dayId;
+
+
+    openModal('extraModal');
+
+}
+
+
+function populateExtraDays() {
+
+    $('extraDayId').innerHTML =
+        '<option value="">Отдельно от смены</option>' +
+
+        state.data.days
+            .filter(
+                d =>
+                    monthOf(d.date) ===
+                    selectedMonth
+            )
+            .sort(
+                (a, b) =>
+                    b.date.localeCompare(
+                        a.date
+                    )
+            )
+            .map(d => `
+                <option value="${d.id}">
+                    ${fmtDate(d.date)}
+                    —
+                    ${
+                        d.tariff === 'city'
+                            ? 'Город'
+                            : 'Загород'
+                    }
+                </option>
+            `)
+            .join('');
+
+}
+
+
+function saveExtra(e) {
+
+    e.preventDefault();
+
+
+    const x = {
+
+        id:
+            uid('extra'),
+
+        date:
+            $('extraDate').value,
+
+        amount:
+            +$('extraAmount').value || 0,
+
+        reason:
+            $('extraReason')
+                .value
+                .trim(),
+
+        dayId:
+            $('extraDayId').value ||
+            null,
+
+        actual:
+            null
+
+    };
+
+
+    if (
+        !x.amount ||
+        !x.reason
+    ) {
+
+        toast(
+            'Введи сумму и причину'
+        );
+
+        return;
+
+    }
+
+
+    state.data.extras.push(x);
+
+    save();
+
+    closeModal('extraModal');
+
+    renderAll();
+
+    toast('Доплата добавлена');
+
+}
+
+
+/* =========================================================
+   ПЕРЕГОН
+========================================================= */
+
+function openCar(id = null) {
+
+    const c =
+        state.data.cars.find(
+            x => x.id === id
+        );
+
+
+    $('carForm').dataset.id =
+        id || '';
+
+
+    $('carDate').value =
+        c?.date ||
+        new Date()
+            .toISOString()
+            .slice(0, 10);
+
+
+    $('carKm').value =
+        c?.km ?? '';
+
+
+    $('carAmount').value =
+        c?.actual ??
+        c?.amount ??
+        '';
+
+
+    $('carNote').value =
+        c?.note ||
+        'Перегон автомобиля';
+
+
+    openModal('carModal');
+
+}
+
+
+function saveCar(e) {
+
+    e.preventDefault();
+
+
+    const id =
+        $('carForm')
+            .dataset
+            .id;
+
+
+    const old =
+        state.data.cars.find(
+            x => x.id === id
+        );
+
+
+    const km =
+        +$('carKm').value || 0;
+
+
+    const c = {
+
+        id:
+            id ||
+            uid('car'),
+
+        date:
+            $('carDate').value,
+
+        km,
+
+        amount:
+            $('carAmount').value === ''
+                ? calcCar(km)
+                : +$('carAmount').value,
+
+        note:
+            $('carNote')
+                .value
+                .trim() ||
+            'Перегон автомобиля',
+
+        actual:
+            old?.actual ??
+            null
+
+    };
+
+
+    if (id) {
+
+        Object.assign(
+            old,
+            c
+        );
+
+    } else {
+
+        state.data.cars.push(c);
+
+    }
+
+
+    save();
+
+    closeModal('carModal');
+
+    renderAll();
+
+    toast('Перегон добавлен');
+
+}
+
+
+/* =========================================================
+   ТАРИФЫ
+========================================================= */
+
+function renderTariffs() {
+
+    renderTariffFields(
+        'city',
+        'cityFields',
+        {
+            minWeekday:
+                'Минимум будни',
+
+            minWeekend:
+                'Минимум выходные',
+
+            pointWeekday:
+                'Точка будни',
+
+            pointWeekend:
+                'Точка выходные',
+
+            order:
+                'Заказ',
+
+            lot:
+                'ЛОТ',
+
+            multi4Weekday:
+                'Мульти до 4 будни',
+
+            multi4Weekend:
+                'Мульти до 4 выходные',
+
+            multi5Weekday:
+                'Мульти 5+ будни',
+
+            multi5Weekend:
+                'Мульти 5+ выходные'
+        }
+    );
+
+
+    renderTariffFields(
+        'country',
+        'countryFields',
+        {
+            minWeekday:
+                'Минимум будни',
+
+            minWeekend:
+                'Минимум выходные',
+
+            pointWeekday:
+                'Точка будни',
+
+            pointWeekend:
+                'Точка выходные',
+
+            order:
+                'Заказ',
+
+            lot:
+                'ЛОТ',
+
+            multi4Weekday:
+                'Мульти до 4 будни',
+
+            multi4Weekend:
+                'Мульти до 4 выходные',
+
+            multi5Weekday:
+                'Мульти 5+ будни',
+
+            multi5Weekend:
+                'Мульти 5+ выходные'
+        }
+    );
+
+
+    renderTariffFields(
+        'car',
+        'carFields',
+        {
+            '4_20':
+                '4–20 км',
+
+            '21_50':
+                '21–50 км',
+
+            '51_80':
+                '51–80 км',
+
+            '81_100':
+                '81–100 км',
+
+            '101_120':
+                '101–120 км',
+
+            '121_plus':
+                '121+ км'
+        }
+    );
+
+}
+
+
+function renderTariffFields(
+    group,
+    id,
+    labels
+) {
+
+    $(id).innerHTML =
+        Object
+            .entries(labels)
+            .map(
+                ([key, label]) => `
+
+                    <label class="tariff-field">
+
+                        <span>
+                            ${label}
+                        </span>
+
+                        <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            data-tariff="${group}.${key}"
+                            value="${state.tariffs[group][key]}"
+                        >
+
+                    </label>
+
+                `
+            )
+            .join('');
+
+}
+
+
+/* =========================================================
+   ВЫПЛАТЫ
+========================================================= */
+
+function renderPayments() {
+
+    const groups =
+        paymentGroups(
+            selectedMonth
+        );
+
+
+    $('paymentsList').innerHTML =
+        groups
+            .map(g => {
+
+                const received =
+                    g.days
+                        .filter(
+                            d =>
+                                d.actual != null &&
+                                d.actual !== ''
+                        )
+                        .reduce(
+                            (sum, d) =>
+                                sum +
+                                Number(d.actual),
+                            0
+                        );
+
+
+                const expected =
+                    g.expected;
+
+
+                const items = [];
+
+
+                /* Смены */
+
+                g.days.forEach(d => {
+
+                    items.push(`
+
+                        <div class="payment-item">
+
+                            <div>
+
+                                <b>
+                                    ${fmtDate(d.date)}
+                                    · смена
+                                </b>
+
+                                <small>
+                                    ${d.points || 0}
+                                    точек ·
+
+                                    ${d.orders || 0}
+                                    заказов ·
+
+                                    ${d.lots || 0}
+                                    ЛОТов
+
+                                    ${
+                                        d.mgt
+                                            ? ` · ${d.mgt} МГТ`
+                                            : ''
+                                    }
+
+                                </small>
+
+                            </div>
+
+
+                            <div
+                                class="${
+                                    d.actual != null &&
+                                    d.actual !== ''
+                                        ? 'fact'
+                                        : 'expect'
+                                }"
+                            >
+                                ${money(
+                                    d.actual ??
+                                    calcDay(d).calculated
+                                )}
+                            </div>
+
+                        </div>
+
+                    `);
+
+                });
+
+
+                /* Отдельные доплаты */
+
+                g.extras.forEach(e => {
+
+                    items.push(`
+
+                        <div class="payment-item">
+
+                            <div>
+
+                                <b>
+                                    ${fmtDate(e.date)}
+                                    · доплата
+                                </b>
+
+                                <small>
+                                    ${escapeHtml(
+                                        e.reason
+                                    )}
+                                </small>
+
+                            </div>
+
+
+                            <div
+                                class="${
+                                    e.actual != null
+                                        ? 'fact'
+                                        : 'expect'
+                                }"
+                            >
+                                ${money(
+                                    e.actual ??
+                                    e.amount
+                                )}
+                            </div>
+
+                        </div>
+
+                    `);
+
+                });
+
+
+                /* Перегоны */
+
+                g.cars.forEach(c => {
+
+                    items.push(`
+
+                        <div class="payment-item">
+
+                            <div>
+
+                                <b>
+                                    ${fmtDate(c.date)}
+                                    · 🚗 перегон
+                                </b>
+
+                                <small>
+                                    ${c.km} км
+                                    ·
+                                    ${escapeHtml(
+                                        c.note || ''
+                                    )}
+                                </small>
+
+                            </div>
+
+
+                            <div
+                                class="${
+                                    c.actual != null
+                                        ? 'fact'
+                                        : 'expect'
+                                }"
+                            >
+                                ${money(
+                                    c.actual ??
+                                    c.amount ??
+                                    calcCar(c.km)
+                                )}
+                            </div>
+
+                        </div>
+
+                    `);
+
+                });
+
+
+                return `
+
+                    <article class="payment-group">
+
+                        <div class="payment-group-head">
+
+                            <div>
+
+                                <b>
+                                    ${g.label}
+                                    сентября
+                                </b>
+
+                                <small>
+                                    ${g.window}
+                                </small>
+
+                            </div>
+
+
+                            <div class="payment-total">
+
+                                <b>
+                                    ${money(expected)}
+                                </b>
+
+                                <small>
+                                    ожидаем
+                                </small>
+
+                            </div>
+
+                        </div>
+
+
+                        ${
+                            items.join('') ||
+                            '<div class="empty">Нет начислений</div>'
+                        }
+
+
+                        <div class="payment-group-head">
+
+                            <div>
+                                <small>
+                                    Фактически внесено
+                                </small>
+                            </div>
+
+
+                            <div class="payment-total">
+
+                                <b
+                                    style="color:var(--green)"
+                                >
+                                    ${money(received)}
+                                </b>
+
+                            </div>
+
+                        </div>
+
+                    </article>
+
+                `;
+
+            })
+            .join('');
+
+}
+
+
+/* =========================================================
+   ФАКТИЧЕСКИЕ ВЫПЛАТЫ
+========================================================= */
+
+function openActuals() {
+
+    actualQueue =
+        state.data.days
+            .filter(
+                d =>
+                    monthOf(d.date) ===
+                    selectedMonth
+            )
+            .sort(
+                (a, b) =>
+                    a.date.localeCompare(
+                        b.date
+                    )
+            );
+
+
+    if (!actualQueue.length) {
+
+        toast(
+            'В этом месяце нет дней'
+        );
+
+        return;
+
+    }
+
+
+    actualIndex = 0;
+
+    renderActual();
+
+    openModal('actualModal');
+
+}
+
+
+function renderActual() {
+
+    const d =
+        actualQueue[actualIndex];
+
+
+    $('actualCounter').textContent =
+        `${actualIndex + 1} / ${actualQueue.length}`;
+
+
+    $('actualBar').style.width =
+        (
+            (actualIndex + 1) /
+            actualQueue.length *
+            100
+        ) + '%';
+
+
+    $('actualTitle').textContent =
+        `${fmtDate(d.date)} — ${
+            d.tariff === 'city'
+                ? 'Город'
+                : 'Загород'
+        }`;
+
+
+    $('actualDateText').textContent =
+        `${d.points || 0} точек · ` +
+        `${d.orders || 0} заказов · ` +
+        `${d.lots || 0} ЛОТов` +
+        (
+            d.mgt
+                ? ` · ${d.mgt} МГТ`
+                : ''
+        );
+
+
+    $('actualCalc').innerHTML = `
+
+        Расчётная сумма
+
+        <strong>
+            ${money(
+                calcDay(d).calculated
+            )}
+        </strong>
+
+    `;
+
+
+    $('actualAmount').value =
+        d.actual ?? '';
+
+
+    $('actualNext').textContent =
+        actualIndex ===
+        actualQueue.length - 1
+
+            ? 'Готово'
+
+            : 'Далее';
+
+}
+
+
+/* =========================================================
+   СОХРАНИТЬ ФАКТИЧЕСКУЮ СУММУ
+========================================================= */
+
+function saveActualAndNext() {
+
+    const d =
+        actualQueue[actualIndex];
+
+
+    const value =
+        $('actualAmount')
+            .value
+            .trim();
+
+
+    if (value !== '') {
+
+        d.actual =
+            +value;
+
+    } else {
+
+        d.actual =
+            null;
+
+    }
+
+
+    save();
+
+
+    if (
+        actualIndex <
+        actualQueue.length - 1
+    ) {
+
+        actualIndex++;
+
+        renderActual();
+
+    } else {
+
+        closeModal(
+            'actualModal'
+        );
+
+        renderAll();
+
+        toast(
+            'Фактические суммы сохранены'
+        );
+
+    }
+
+}
+
+
+function editActualBack() {
+
+    if (actualIndex > 0) {
+
+        actualIndex--;
+
+        renderActual();
+
+    }
+
+}
+
+
+/* =========================================================
+   ОБНОВЛЕНИЕ ВСЕГО
+========================================================= */
+
+function renderAll() {
+
+    renderDashboard();
+
+    renderDays();
+
+    renderPayments();
+
+    renderTariffs();
+
+    $('daysMonthPicker').value =
+        selectedMonth;
+
+}
+
+
+/* =========================================================
+   ЭКСПОРТ
+========================================================= */
+
+function exportData() {
+
+    const blob =
+        new Blob(
+            [
+                JSON.stringify(
+                    state,
+                    null,
+                    2
+                )
+            ],
+            {
+                type:
+                    'application/json'
+            }
+        );
+
+
+    const a =
+        document.createElement(
+            'a'
+        );
+
+
+    a.href =
+        URL.createObjectURL(blob);
+
+
+    a.download =
+        `atlant-earnings-${currentMonth()}.json`;
+
+
+    a.click();
+
+
+    URL.revokeObjectURL(
+        a.href
+    );
+
+}
+
+
+/* =========================================================
+   ИМПОРТ
+========================================================= */
+
+function importData(file) {
+
+    const reader =
+        new FileReader();
+
+
+    reader.onload = () => {
+
+        try {
+
+            const x =
+                JSON.parse(
+                    reader.result
+                );
+
+
+            if (
+                !x.data ||
+                !x.tariffs
+            ) {
+
+                throw new Error();
+
+            }
+
+
+            Object.assign(
+                state,
+                x
+            );
+
+
+            save();
+
+            renderAll();
+
+            toast(
+                'Данные импортированы'
+            );
+
+        } catch {
+
+            toast(
+                'Не удалось импортировать файл'
+            );
+
+        }
+
+    };
+
+
+    reader.readAsText(file);
+
+}
+
+
+/* =========================================================
+   TOAST
+========================================================= */
+
+function toast(msg) {
+
+    $('toast').textContent =
+        msg;
+
+
+    $('toast')
+        .classList
+        .add('show');
+
+
+    setTimeout(
+        () => {
+
+            $('toast')
+                .classList
+                .remove('show');
+
+        },
+        2200
+    );
+
+}
+
+
+/* =========================================================
+   УВЕДОМЛЕНИЕ О ЗАРПЛАТЕ
+========================================================= */
+
+function checkSalaryNotification() {
+
+    const d =
+        new Date();
+
+
+    const day =
+        d.getDate();
+
+
+    const inFirst =
+        day >= 25 &&
+        day <= 30;
+
+
+    const inSecond =
+        day >= 15 &&
+        day <= 20;
+
+
+    const relevant =
+        inFirst ||
+        inSecond;
+
+
+    if (!relevant) {
+        return;
+    }
+
+
+    const period =
+        inFirst
+            ? '1–15'
+            : '16–конец';
+
+
+    const key =
+        `salary-note-${d.getFullYear()}-${d.getMonth() + 1}-${period}`;
+
+
+    if (
+        localStorage.getItem(key) ===
+        'closed'
+    ) {
+
+        return;
+
+    }
+
+
+    $('notificationText').textContent =
+        `Сейчас период выплаты за ${period}. ` +
+        `Если деньги уже пришли на карту, ` +
+        `внеси фактические суммы по дням.`;
+
+
+    $('salaryNotification')
+        .classList
+        .remove('hidden');
+
+
+    $('notificationGo').onclick =
+        () => {
+
+            closeNotification();
+
+            showPage(
+                'daysPage'
+            );
+
+            openActuals();
+
+        };
+
+
+    $('closeNotification').onclick =
+        closeNotification;
+
+
+    function closeNotification() {
+
+        localStorage.setItem(
+            key,
+            'closed'
+        );
+
+
+        $('salaryNotification')
+            .classList
+            .add('hidden');
+
+    }
+
+}
+
+
+/* =========================================================
+   КЛИКИ
+========================================================= */
+
+document.addEventListener(
+    'click',
+    e => {
+
+        /* Навигация */
+
+        const nav =
+            e.target.closest(
+                '[data-page]'
+            );
+
+
+        if (nav) {
+
+            showPage(
+                nav.dataset.page
+            );
+
+            return;
+
+        }
+
+
+        /* Закрытие модального окна */
+
+        const close =
+            e.target.closest(
+                '[data-close]'
+            );
+
+
+        if (close) {
+
+            closeModal(
+                close.dataset.close
+            );
+
+            return;
+
+        }
+
+
+        /* Кнопки + / - */
+
+        const numberButton =
+            e.target.closest(
+                '[data-number]'
+            );
+
+
+        if (numberButton) {
+
+            const input =
+                $(
+                    numberButton.dataset
+                        .number
+                );
+
+
+            let value =
+                parseInt(
+                    input.value,
+                    10
+                );
+
+
+            if (
+                Number.isNaN(value)
+            ) {
+
+                value = 0;
+
+            }
+
+
+            value =
+                Math.max(
+                    0,
+                    value +
+                    Number(
+                        numberButton
+                            .dataset
+                            .delta
+                    )
+                );
+
+
+            input.value =
+                value;
+
+
+            input.dispatchEvent(
+                new Event('input')
+            );
+
+
+            return;
+
+        }
+
+
+        /* Редактирование дня */
+
+        const editDay =
+            e.target.closest(
+                '[data-edit-day]'
+            );
+
+
+        if (editDay) {
+
+            resetDayForm(
+                state.data.days.find(
+                    d =>
+                        d.id ===
+                        editDay.dataset
+                            .editDay
+                )
+            );
+
+
+            openModal(
+                'dayModal'
+            );
+
+
+            return;
+
+        }
+
+
+        /* Удаление дня */
+
+        const deleteDay =
+            e.target.closest(
+                '[data-delete-day]'
+            );
+
+
+        if (
+            deleteDay &&
+            confirm(
+                'Удалить этот день?'
+            )
+        ) {
+
+            state.data.days =
+                state.data.days.filter(
+                    d =>
+                        d.id !==
+                        deleteDay.dataset
+                            .deleteDay
+                );
+
+
+            save();
+
+            renderAll();
+
+            return;
+
+        }
+
+
+        /* Редактирование перегона */
+
+        const editCar =
+            e.target.closest(
+                '[data-edit-car]'
+            );
+
+
+        if (editCar) {
+
+            openCar(
+                editCar.dataset.editCar
+            );
+
+            return;
+
+        }
+
+
+        /* Удаление перегона */
+
+        const deleteCar =
+            e.target.closest(
+                '[data-delete-car]'
+            );
+
+
+        if (
+            deleteCar &&
+            confirm(
+                'Удалить перегон?'
+            )
+        ) {
+
+            state.data.cars =
+                state.data.cars.filter(
+                    c =>
+                        c.id !==
+                        deleteCar.dataset
+                            .deleteCar
+                );
+
+
+            save();
+
+            renderAll();
+
+            return;
+
+        }
+
+
+        /* Редактирование доплаты */
+
+        const editExtra =
+            e.target.closest(
+                '[data-edit-extra]'
+            );
+
+
+        if (editExtra) {
+
+            const x =
+                state.data.extras.find(
+                    extra =>
+                        extra.id ===
+                        editExtra.dataset
+                            .editExtra
+                );
+
+
+            if (x) {
+
+                openExtra(
+                    x.date,
+                    x.dayId
+                );
+
+
+                $('extraAmount').value =
+                    x.amount;
+
+
+                $('extraReason').value =
+                    x.reason;
+
+
+                $('extraForm')
+                    .dataset
+                    .id =
+                    x.id;
+
+            }
+
+
+            return;
+
+        }
+
+
+        /* Удаление доплаты */
+
+        const deleteExtra =
+            e.target.closest(
+                '[data-delete-extra]'
+            );
+
+
+        if (
+            deleteExtra &&
+            confirm(
+                'Удалить доплату?'
+            )
+        ) {
+
+            state.data.extras =
+                state.data.extras.filter(
+                    x =>
+                        x.id !==
+                        deleteExtra.dataset
+                            .deleteExtra
+                );
+
+
+            save();
+
+            renderAll();
+
+            return;
+
+        }
+
+    }
+);
+
+
+/* =========================================================
+   КНОПКИ
+========================================================= */
+
+$('addDayBtn').onclick =
+    () => {
+
+        resetDayForm();
+
+        openModal(
+            'dayModal'
+        );
+
+    };
+
+
+$('quickAddDay').onclick =
+    () => {
+
+        $('addDayBtn').click();
+
+    };
+
+
+$('bottomAdd').onclick =
+    () => {
+
+        $('addDayBtn').click();
+
+    };
+
+
+$('quickExtra').onclick =
+    () => {
+
+        openExtra();
+
+    };
+
+
+$('quickCar').onclick =
+    () => {
+
+        openCar();
+
+    };
+
+
+$('addCarBtn').onclick =
+    () => {
+
+        openCar();
+
+    };
+
+
+$('editActualsBtn').onclick =
+    openActuals;
+
+
+/* =========================================================
+   FORM EVENTS
+========================================================= */
+
+$('dayForm').onsubmit =
+    saveDay;
+
+
+$('extraForm').onsubmit =
+    saveExtra;
+
+
+$('carForm').onsubmit =
+    saveCar;
+
+
+/* =========================================================
+   WIZARD
+========================================================= */
+
+$('wizardNext').onclick =
+    () => {
+
+        if (dayStep < 5) {
+
+            dayStep++;
+
+            renderDayStep();
+
+        }
+
+    };
+
+
+$('wizardBack').onclick =
+    () => {
+
+        if (dayStep > 1) {
+
+            dayStep--;
+
+            renderDayStep();
+
+        }
+
+    };
+
+
+[
+    'dayDate',
+    'dayTariff',
+    'dayPoints',
+    'dayOrders',
+    'dayLots',
+    'dayMgt',
+    'dayMulti4',
+    'dayMulti5',
+    'dayExtraAdd'
+].forEach(id => {
+
+    $(id).addEventListener(
+        'input',
+        renderDayStep
+    );
+
+});
+
+
+/* =========================================================
+   ФАКТИЧЕСКИЕ
+========================================================= */
+
+$('actualNext').onclick =
+    saveActualAndNext;
+
+
+$('actualBack').onclick =
+    editActualBack;
+
+
+/* =========================================================
+   МЕСЯЦ
+========================================================= */
+
+$('prevMonth').onclick =
+    () => {
+
+        selectedMonth =
+            shiftMonth(
+                selectedMonth,
+                -1
+            );
+
+
+        $('daysMonthPicker').value =
+            selectedMonth;
+
+
+        renderAll();
+
+    };
+
+
+$('nextMonth').onclick =
+    () => {
+
+        selectedMonth =
+            shiftMonth(
+                selectedMonth,
+                1
+            );
+
+
+        $('daysMonthPicker').value =
+            selectedMonth;
+
+
+        renderAll();
+
+    };
+
+
+$('daysPrevMonth').onclick =
+    () => {
+
+        $('prevMonth').click();
+
+    };
+
+
+$('daysNextMonth').onclick =
+    () => {
+
+        $('nextMonth').click();
+
+    };
+
+
+$('daysMonthPicker').onchange =
+    e => {
+
+        selectedMonth =
+            e.target.value;
+
+        renderAll();
+
+    };
+
+
+/* =========================================================
+   ТАРИФЫ
+========================================================= */
+
+$('resetTariffs').onclick =
+    () => {
+
+        if (
+            confirm(
+                'Сбросить все тарифы к исходным?'
+            )
+        ) {
+
+            state.tariffs =
+                structuredClone(
+                    DEFAULT_TARIFFS
+                );
+
+
+            save();
+
+            renderAll();
+
+        }
+
+    };
+
+
+document.addEventListener(
+    'change',
+    e => {
+
+        const tariff =
+            e.target.dataset.tariff;
+
+
+        if (tariff) {
+
+            const [
+                group,
+                key
+            ] =
+                tariff.split('.');
+
+
+            state.tariffs[group][key] =
+                Number(
+                    e.target.value
+                ) || 0;
+
+
+            save();
+
+            renderDashboard();
+
+            renderDays();
+
+            renderPayments();
+
+        }
+
+    }
+);
+
+
+/* =========================================================
+   ЭКСПОРТ / ИМПОРТ
+========================================================= */
+
+$('exportBtn').onclick =
+    exportData;
+
+
+$('exportBtnProfile').onclick =
+    exportData;
+
+
+$('importFile').onchange =
+    e => {
+
+        if (
+            e.target.files[0]
+        ) {
+
+            importData(
+                e.target.files[0]
+            );
+
+        }
+
+    };
+
+
+$('importFileProfile').onchange =
+    e => {
+
+        if (
+            e.target.files[0]
+        ) {
+
+            importData(
+                e.target.files[0]
+            );
+
+        }
+
+    };
+
+
+/* =========================================================
+   ОЧИСТКА
+========================================================= */
+
+$('resetAllBtn').onclick =
+    () => {
+
+        if (
+            confirm(
+                'Удалить все дни, доплаты и перегоны? Тарифы тоже будут сброшены.'
+            )
+        ) {
+
+            localStorage.removeItem(
+                STORAGE
+            );
+
+
+            location.reload();
+
+        }
+
+    };
+
+
+/* =========================================================
+   START
+========================================================= */
+
+load();
+
+$('daysMonthPicker').value =
+    selectedMonth;
+
+renderAll();
+
+checkSalaryNotification();

@@ -60,6 +60,22 @@
         <div><span class="eyebrow">ЖУРНАЛ</span><h2>Дни</h2><p>Все смены и отдельные начисления</p></div>
         <div class="month-picker"><button class="round-btn" id="daysPrevMonth" type="button">‹</button><input id="daysMonthPicker" type="month"><button class="round-btn" id="daysNextMonth" type="button">›</button></div>
       </div>
+      <section class="earnings-chart-card">
+        <div class="earnings-chart-head">
+          <div>
+            <span class="eyebrow">ДИНАМИКА</span>
+            <h3>Заработок по дням</h3>
+            <p>Сумма за каждый день выбранного месяца</p>
+          </div>
+          <div class="chart-total" id="daysChartTotal">0 ₽</div>
+        </div>
+        <div class="chart-legend">
+          <span><i class="legend-dot actual"></i>Фактически</span>
+          <span><i class="legend-dot expected"></i>Расчёт</span>
+        </div>
+        <div class="daily-chart" id="dailyChart"></div>
+      </section>
+
       <div class="toolbar">
         <button class="btn primary" id="addDayBtn" type="button">＋ День</button>
         <button class="btn secondary" id="addCarBtn" type="button">↗ Перегон</button>

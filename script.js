@@ -345,6 +345,7 @@ function plural(n, one, few, many) {
 
 function renderDays() {
   $('daysMonthPicker').value = selectedMonth;
+  renderDailyChart();
   const { days, cars, extras } = monthData(selectedMonth);
   const t = totals(selectedMonth);
 
@@ -370,6 +371,95 @@ function renderDays() {
     if (item.type === 'car') return renderCarCard(item.data);
     return renderExtraCard(item.data);
   }).join('');
+}
+
+function renderDailyChart() {
+  const chart = $('dailyChart');
+  const totalEl = $('daysChartTotal');
+  if (!chart) return;
+
+  const { days, cars, extras } = monthData(selectedMonth);
+  const entries = [];
+
+  // Каждый день показывается отдельной точкой/столбцом.
+  // Если фактическая выплата уже внесена — используем её,
+  // иначе показываем расчётную сумму.
+  days.forEach(day => {
+    entries.push({
+      date: day.date,
+      amount: hasActual(day) ? Number(day.actual) || 0 : calcDay(day).calculated,
+      actual: hasActual(day)
+    });
+  });
+
+  // Отдельные доплаты и перегоны без смены также являются заработком дня.
+  extras.filter(extra => !extra.dayId).forEach(extra => {
+    const entry = entries.find(x => x.date === extra.date);
+    const amount = hasActual(extra) ? Number(extra.actual) || 0 : Number(extra.amount) || 0;
+    if (entry) {
+      entry.amount += amount;
+      entry.actual = entry.actual && hasActual(extra);
+    } else {
+      entries.push({ date: extra.date, amount, actual: hasActual(extra) });
+    }
+  });
+
+  cars.forEach(car => {
+    const entry = entries.find(x => x.date === car.date);
+    const amount = hasActual(car) ? Number(car.actual) || 0 : carAmount(car);
+    if (entry) {
+      entry.amount += amount;
+      entry.actual = entry.actual && hasActual(car);
+    } else {
+      entries.push({ date: car.date, amount, actual: hasActual(car) });
+    }
+  });
+
+  entries.sort((a, b) => a.date.localeCompare(b.date));
+
+  if (!entries.length) {
+    chart.className = 'daily-chart empty';
+    chart.innerHTML = 'В этом месяце пока нет заработка';
+    if (totalEl) totalEl.textContent = money(0);
+    return;
+  }
+
+  chart.className = 'daily-chart';
+  const max = Math.max(...entries.map(x => x.amount), 1);
+  const total = entries.reduce((sum, x) => sum + x.amount, 0);
+  if (totalEl) totalEl.textContent = money(total);
+
+  const ticks = [max, max * 0.75, max * 0.5, max * 0.25, 0];
+  const axis = ticks.map(value => `<span>${formatShortMoney(value)}</span>`).join('');
+
+  const columns = entries.map(entry => {
+    const height = entry.amount > 0 ? Math.max(3, (entry.amount / max) * 100) : 0;
+    const label = new Date(`${entry.date}T12:00:00`).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+    const barClass = entry.actual ? 'chart-bar actual' : 'chart-bar';
+    const dateClass = entry.actual ? 'chart-date actual-date' : 'chart-date';
+    return `
+      <div class="chart-column" title="${escapeHtml(label)} — ${escapeHtml(money(entry.amount))}${entry.actual ? ' · фактически' : ' · расчёт'}">
+        <div class="chart-bar-wrap">
+          <div class="${barClass}" style="height:${height}%;"></div>
+          <div class="chart-value" style="--bar-height:${height}%">${escapeHtml(money(entry.amount))}</div>
+        </div>
+        <div class="${dateClass}">${escapeHtml(label)}</div>
+      </div>
+    `;
+  }).join('');
+
+  chart.innerHTML = `
+    <div class="chart-inner">
+      <div class="chart-y-axis">${axis}</div>
+      <div class="chart-plot"><div class="chart-columns">${columns}</div></div>
+    </div>
+  `;
+}
+
+function formatShortMoney(value) {
+  const n = Math.round(Number(value) || 0);
+  if (n >= 1000) return `${Math.round(n / 1000)}к`;
+  return String(n);
 }
 
 function renderDayCard(day) {

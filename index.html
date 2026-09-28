@@ -7,93 +7,1607 @@
 <title>Атлант Груп — заработок</title>
 <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
+
 <div class="app">
-  <header class="topbar">
-    <div><div class="eyebrow">ООО «Атлант Груп»</div><h1>Мой заработок</h1><p>Смены, доплаты, перегоны и выплаты</p></div>
-    <div class="top-actions"><button class="icon-btn" id="exportBtn" title="Экспорт">⇩</button><label class="icon-btn file-btn" title="Импорт">⇧<input id="importFile" type="file" accept=".json" hidden></label></div>
-  </header>
 
-  <main>
-    <section class="page active" id="homePage">
-      <div class="month-line"><button id="prevMonth">‹</button><div><span>Выбранный месяц</span><strong id="monthLabel">—</strong></div><button id="nextMonth">›</button></div>
-      <section class="hero-money">
-        <span>Общий заработок по расчёту</span>
-        <strong id="dashboardTotal">0 ₽</strong>
-        <small>смены + доплаты + перегоны</small>
-      </section>
-      <div class="money-grid">
-        <article class="money-card received"><span>Получено</span><strong id="dashboardReceived">0 ₽</strong><small>фактически поступило на карту</small></article>
-        <article class="money-card expected"><span>Ожидаем</span><strong id="dashboardExpected">0 ₽</strong><small>ещё не подтверждено фактической выплатой</small></article>
-      </div>
-      <section class="dashboard-periods">
-        <div class="section-title"><h2>Выплаты этого месяца</h2><button class="link-btn" data-go="paymentsPage">Все</button></div>
-        <div id="dashboardPeriods"></div>
-      </section>
-      <section class="quick-actions">
-        <button class="quick" id="quickAddDay"><b>＋</b><span>Добавить день</span></button>
-        <button class="quick" id="quickExtra"><b>₽</b><span>Добавить доплату</span></button>
-        <button class="quick" id="quickCar"><b>🚗</b><span>Добавить перегон</span></button>
-      </section>
-    </section>
+    <!-- =====================================================
+         ВЕРХНЯЯ ПАНЕЛЬ
+    ====================================================== -->
 
-    <section class="page" id="daysPage">
-      <div class="page-head"><div><h2>Дни</h2><p>Смены и отдельные начисления</p></div><div class="month-picker"><button id="daysPrevMonth">‹</button><input id="daysMonthPicker" type="month"><button id="daysNextMonth">›</button></div></div>
-      <div class="toolbar"><button class="btn primary" id="addDayBtn">＋ День</button><button class="btn secondary" id="addCarBtn">🚗 Перегон</button><button class="btn secondary" id="editActualsBtn">✓ Фактические</button></div>
-      <div id="daysList"></div>
-    </section>
+    <header class="topbar">
 
-    <section class="page" id="tariffsPage">
-      <div class="page-head"><div><h2>Тарифы</h2><p>Меняй ставки — они сохраняются автоматически.</p></div><button class="btn secondary" id="resetTariffs">Сбросить</button></div>
-      <div class="tariff-grid"><article class="tariff-card"><span class="tag city">ГОРОД</span><h3>Город</h3><div id="cityFields"></div></article><article class="tariff-card"><span class="tag country">ЗАГОРОД</span><h3>Загород</h3><div id="countryFields"></div></article><article class="tariff-card"><span class="tag car">ПЕРЕГОН</span><h3>Перегон автомобиля</h3><div id="carFields"></div></article></div>
-    </section>
+        <div>
+            <div class="eyebrow">ООО «Атлант Груп»</div>
 
-    <section class="page" id="paymentsPage">
-      <div class="page-head"><div><h2>Выплаты</h2><p>Периоды 1–15 и 16–конец месяца.</p></div></div>
-      <div class="payment-rules"><div><b>1–15</b><span>выплата 25–30 этого месяца</span></div><div><b>16–конец</b><span>выплата 15–20 следующего месяца</span></div></div>
-      <div id="paymentsList"></div>
-    </section>
+            <h1>Мой заработок</h1>
 
-    <section class="page" id="profilePage">
-      <div class="profile-card"><div class="profile-avatar">А</div><h2>ООО «Атлант Груп»</h2><p>Калькулятор личного заработка</p></div>
-      <div class="settings-list"><button id="exportBtnProfile">Экспорт данных <span>›</span></button><label>Импорт данных <span>›</span><input id="importFileProfile" type="file" accept=".json" hidden></label><button id="resetAllBtn" class="danger-row">Очистить все данные <span>›</span></button></div>
-    </section>
-  </main>
+            <p>
+                Смены, доплаты, перегоны и выплаты
+            </p>
+        </div>
 
-  <nav class="bottom-nav">
-    <button class="nav-item active" data-page="homePage"><b>⌂</b><span>Главная</span></button>
-    <button class="nav-item" data-page="daysPage"><b>▣</b><span>Дни</span></button>
-    <button class="nav-add" id="bottomAdd">＋</button>
-    <button class="nav-item" data-page="paymentsPage"><b>₽</b><span>Выплаты</span></button>
-    <button class="nav-item" data-page="profilePage"><b>●</b><span>Профиль</span></button>
-  </nav>
+        <div class="top-actions">
+
+            <button
+                class="icon-btn"
+                id="exportBtn"
+                title="Экспорт"
+            >
+                ⇩
+            </button>
+
+            <label
+                class="icon-btn file-btn"
+                title="Импорт"
+            >
+                ⇧
+
+                <input
+                    id="importFile"
+                    type="file"
+                    accept=".json"
+                    hidden
+                >
+            </label>
+
+        </div>
+
+    </header>
+
+
+    <main>
+
+        <!-- =================================================
+             ГЛАВНАЯ
+        ================================================== -->
+
+        <section
+            class="page active"
+            id="homePage"
+        >
+
+            <div class="month-line">
+
+                <button id="prevMonth">
+                    ‹
+                </button>
+
+                <div>
+                    <span>Выбранный месяц</span>
+                    <strong id="monthLabel">—</strong>
+                </div>
+
+                <button id="nextMonth">
+                    ›
+                </button>
+
+            </div>
+
+
+            <section class="hero-money">
+
+                <span>
+                    Общий заработок по расчёту
+                </span>
+
+                <strong id="dashboardTotal">
+                    0 ₽
+                </strong>
+
+                <small>
+                    смены + доплаты + перегоны
+                </small>
+
+            </section>
+
+
+            <div class="money-grid">
+
+                <article class="money-card received">
+
+                    <span>
+                        Получено
+                    </span>
+
+                    <strong id="dashboardReceived">
+                        0 ₽
+                    </strong>
+
+                    <small>
+                        фактически поступило на карту
+                    </small>
+
+                </article>
+
+
+                <article class="money-card expected">
+
+                    <span>
+                        Ожидаем
+                    </span>
+
+                    <strong id="dashboardExpected">
+                        0 ₽
+                    </strong>
+
+                    <small>
+                        ещё не подтверждено фактической выплатой
+                    </small>
+
+                </article>
+
+            </div>
+
+
+            <section class="dashboard-periods">
+
+                <div class="section-title">
+
+                    <h2>
+                        Выплаты этого месяца
+                    </h2>
+
+                    <button
+                        class="link-btn"
+                        data-go="paymentsPage"
+                    >
+                        Все
+                    </button>
+
+                </div>
+
+                <div id="dashboardPeriods"></div>
+
+            </section>
+
+
+            <section class="quick-actions">
+
+                <button
+                    class="quick"
+                    id="quickAddDay"
+                >
+                    <b>＋</b>
+                    <span>
+                        Добавить день
+                    </span>
+                </button>
+
+
+                <button
+                    class="quick"
+                    id="quickExtra"
+                >
+                    <b>₽</b>
+                    <span>
+                        Добавить доплату
+                    </span>
+                </button>
+
+
+                <button
+                    class="quick"
+                    id="quickCar"
+                >
+                    <b>🚗</b>
+                    <span>
+                        Добавить перегон
+                    </span>
+                </button>
+
+            </section>
+
+        </section>
+
+
+        <!-- =================================================
+             ДНИ
+        ================================================== -->
+
+        <section
+            class="page"
+            id="daysPage"
+        >
+
+            <div class="page-head">
+
+                <div>
+
+                    <h2>
+                        Дни
+                    </h2>
+
+                    <p>
+                        Смены и отдельные начисления
+                    </p>
+
+                </div>
+
+
+                <div class="month-picker">
+
+                    <button id="daysPrevMonth">
+                        ‹
+                    </button>
+
+                    <input
+                        id="daysMonthPicker"
+                        type="month"
+                    >
+
+                    <button id="daysNextMonth">
+                        ›
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <div class="toolbar">
+
+                <button
+                    class="btn primary"
+                    id="addDayBtn"
+                >
+                    ＋ День
+                </button>
+
+                <button
+                    class="btn secondary"
+                    id="addCarBtn"
+                >
+                    🚗 Перегон
+                </button>
+
+                <button
+                    class="btn secondary"
+                    id="editActualsBtn"
+                >
+                    ✓ Фактические
+                </button>
+
+            </div>
+
+
+            <div id="daysList"></div>
+
+        </section>
+
+
+        <!-- =================================================
+             ТАРИФЫ
+        ================================================== -->
+
+        <section
+            class="page"
+            id="tariffsPage"
+        >
+
+            <div class="page-head">
+
+                <div>
+
+                    <h2>
+                        Тарифы
+                    </h2>
+
+                    <p>
+                        Меняй ставки — они сохраняются автоматически.
+                    </p>
+
+                </div>
+
+
+                <button
+                    class="btn secondary"
+                    id="resetTariffs"
+                >
+                    Сбросить
+                </button>
+
+            </div>
+
+
+            <div class="tariff-grid">
+
+                <!-- Город -->
+
+                <article class="tariff-card">
+
+                    <span class="tag city">
+                        ГОРОД
+                    </span>
+
+                    <h3>
+                        Город
+                    </h3>
+
+                    <div id="cityFields"></div>
+
+                </article>
+
+
+                <!-- Загород -->
+
+                <article class="tariff-card">
+
+                    <span class="tag country">
+                        ЗАГОРОД
+                    </span>
+
+                    <h3>
+                        Загород
+                    </h3>
+
+                    <div id="countryFields"></div>
+
+                </article>
+
+
+                <!-- Перегон -->
+
+                <article class="tariff-card">
+
+                    <span class="tag car">
+                        ПЕРЕГОН
+                    </span>
+
+                    <h3>
+                        Перегон автомобиля
+                    </h3>
+
+                    <div id="carFields"></div>
+
+                </article>
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+             ВЫПЛАТЫ
+        ================================================== -->
+
+        <section
+            class="page"
+            id="paymentsPage"
+        >
+
+            <div class="page-head">
+
+                <div>
+
+                    <h2>
+                        Выплаты
+                    </h2>
+
+                    <p>
+                        Периоды 1–15 и 16–конец месяца.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="payment-rules">
+
+                <div>
+
+                    <b>
+                        1–15
+                    </b>
+
+                    <span>
+                        выплата 25–30 этого месяца
+                    </span>
+
+                </div>
+
+
+                <div>
+
+                    <b>
+                        16–конец
+                    </b>
+
+                    <span>
+                        выплата 15–20 следующего месяца
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <div id="paymentsList"></div>
+
+        </section>
+
+
+        <!-- =================================================
+             ПРОФИЛЬ
+        ================================================== -->
+
+        <section
+            class="page"
+            id="profilePage"
+        >
+
+            <div class="profile-card">
+
+                <div class="profile-avatar">
+                    А
+                </div>
+
+                <h2>
+                    ООО «Атлант Груп»
+                </h2>
+
+                <p>
+                    Калькулятор личного заработка
+                </p>
+
+            </div>
+
+
+            <div class="settings-list">
+
+                <button id="exportBtnProfile">
+                    Экспорт данных
+                    <span>›</span>
+                </button>
+
+
+                <label>
+
+                    Импорт данных
+
+                    <span>›</span>
+
+                    <input
+                        id="importFileProfile"
+                        type="file"
+                        accept=".json"
+                        hidden
+                    >
+
+                </label>
+
+
+                <button
+                    id="resetAllBtn"
+                    class="danger-row"
+                >
+                    Очистить все данные
+                    <span>›</span>
+                </button>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <!-- =====================================================
+         НИЖНЯЯ НАВИГАЦИЯ
+    ====================================================== -->
+
+    <nav class="bottom-nav">
+
+        <button
+            class="nav-item active"
+            data-page="homePage"
+        >
+            <b>⌂</b>
+            <span>Главная</span>
+        </button>
+
+
+        <button
+            class="nav-item"
+            data-page="daysPage"
+        >
+            <b>▣</b>
+            <span>Дни</span>
+        </button>
+
+
+        <button
+            class="nav-add"
+            id="bottomAdd"
+        >
+            ＋
+        </button>
+
+
+        <button
+            class="nav-item"
+            data-page="paymentsPage"
+        >
+            <b>₽</b>
+            <span>Выплаты</span>
+        </button>
+
+
+        <button
+            class="nav-item"
+            data-page="profilePage"
+        >
+            <b>●</b>
+            <span>Профиль</span>
+        </button>
+
+    </nav>
+
 </div>
 
-<!-- День -->
-<div class="modal hidden" id="dayModal"><div class="modal-card wizard-card">
-  <div class="modal-head"><div><div class="eyebrow" id="wizardLabel">НОВАЯ СМЕНА</div><h2 id="dayModalTitle">Добавить день</h2></div><button class="close" data-close="dayModal">×</button></div>
-  <div class="progress"><i></i><i></i><i></i><i></i><i></i></div>
-  <form id="dayForm"><input id="dayId" type="hidden">
-    <div class="step active" data-step="1"><div class="step-title"><span>01</span><div><h3>Дата и тариф</h3><p>Выбери дату. Будний или выходной сайт определит по календарю.</p></div></div><label>Дата<input id="dayDate" type="date" required></label><label>Тариф<select id="dayTariff"><option value="city">Город</option><option value="country">Загород</option></select></label><div class="calendar-rule" id="calendarRule"></div><label>Комментарий <small>необязательно</small><input id="dayNote" type="text" placeholder="Например: обычная смена"></label></div>
-    <div class="step" data-step="2"><div class="step-title"><span>02</span><div><h3>Точки</h3><p>Количество доставок в ПВЗ / заборов из ПВЗ.</p></div></div><div class="number-card"><div class="number-label">Количество точек</div><div class="number-control"><button type="button" data-number="dayPoints" data-delta="-1">−</button><input id="dayPoints" type="number" min="0" step="1" inputmode="numeric" value="0"><button type="button" data-number="dayPoints" data-delta="1">＋</button></div></div></div>
-    <div class="step" data-step="3"><div class="step-title"><span>03</span><div><h3>Заказы и ЛОТы</h3><p>Внеси обычные заказы и ЛОТы.</p></div></div><div class="number-card"><div class="number-label">Обычные заказы</div><div class="number-control"><button type="button" data-number="dayOrders" data-delta="-1">−</button><input id="dayOrders" type="number" min="0" step="1" inputmode="numeric" value="0"><button type="button" data-number="dayOrders" data-delta="1">＋</button></div></div><div class="number-card"><div class="number-label">ЛОТы / мешки</div><div class="number-control"><button type="button" data-number="dayLots" data-delta="-1">−</button><input id="dayLots" type="number" min="0" step="1" inputmode="numeric" value="0"><button type="button" data-number="dayLots" data-delta="1">＋</button></div></div></div>
-    <div class="step" data-step="4"><div class="step-title"><span>04</span><div><h3>Доставка и доплаты</h3><p>Здесь можно отдельно сохранить МГТ и любые дополнительные деньги.</p></div></div><div class="number-card"><div class="number-label">Доставка клиентам — МГТ</div><div class="number-control"><button type="button" data-number="dayMgt" data-delta="-1">−</button><input id="dayMgt" type="number" min="0" step="1" inputmode="numeric" value="0"><button type="button" data-number="dayMgt" data-delta="1">＋</button></div><div class="field-note">Сохраняется отдельно для отчёта. Если МГТ уже входят в «Заказы», второй раз не начисляются.</div></div><div class="number-grid"><div class="number-card compact"><div class="number-label">Мультизаказы до 4</div><div class="number-control"><button type="button" data-number="dayMulti4" data-delta="-1">−</button><input id="dayMulti4" type="number" min="0" step="1" inputmode="numeric" value="0"><button type="button" data-number="dayMulti4" data-delta="1">＋</button></div></div><div class="number-card compact"><div class="number-label">Мультизаказы 5+</div><div class="number-control"><button type="button" data-number="dayMulti5" data-delta="-1">−</button><input id="dayMulti5" type="number" min="0" step="1" inputmode="numeric" value="0"><button type="button" data-number="dayMulti5" data-delta="1">＋</button></div></div></div><div class="extra-payment-card"><div class="extra-payment-title">Доплата за этот день</div><p>Например: выход в свой выходной, стажировка, дополнительная работа.</p><div class="number-control extra-number-control"><button type="button" data-number="dayExtraAdd" data-delta="-100">−</button><input id="dayExtraAdd" type="number" min="0" step="1" inputmode="numeric" value="0"><button type="button" data-number="dayExtraAdd" data-delta="100">＋</button></div><label>Причина доплаты<input id="dayExtraReason" type="text" maxlength="200" placeholder="Например: вышел в свой выходной"></label></div></div>
-    <div class="step" data-step="5"><div class="step-title"><span>05</span><div><h3>Проверка</h3><p>Сначала сохраняется расчёт. Фактическую сумму можно внести позже в отдельном режиме.</p></div></div><div id="dayPreview" class="preview"></div><div class="hint">Фактическую выплату не обязательно вводить сейчас.</div></div>
-    <div class="wizard-actions"><button type="button" class="btn secondary" id="wizardBack">Назад</button><div><button type="button" class="btn primary" id="wizardNext">Далее</button><button type="submit" class="btn primary hidden" id="wizardSave">Сохранить день</button></div></div>
-  </form>
-</div></div>
 
-<!-- Доплата отдельно -->
-<div class="modal hidden" id="extraModal"><div class="modal-card small"><div class="modal-head"><div><div class="eyebrow">ДОПЛАТА</div><h2>Добавить отдельную доплату</h2></div><button class="close" data-close="extraModal">×</button></div><form id="extraForm"><label>Дата<input id="extraDate" type="date" required></label><label>Сумма<input id="extraAmount" type="number" min="0" step="1" required inputmode="numeric" placeholder="2000"></label><label>Причина<input id="extraReason" type="text" maxlength="200" required placeholder="Например: отвёз машину после смены"></label><label>Привязать к смене <small>необязательно</small><select id="extraDayId"><option value="">Отдельно от смены</option></select></label><div class="modal-actions"><button type="button" class="btn secondary" data-close="extraModal">Отмена</button><button class="btn primary">Добавить</button></div></form></div></div>
+<!-- =========================================================
+     МОДАЛЬНОЕ ОКНО — НОВЫЙ ДЕНЬ
+========================================================= -->
 
-<!-- Перегон -->
-<div class="modal hidden" id="carModal"><div class="modal-card small"><div class="modal-head"><div><div class="eyebrow">ПЕРЕГОН</div><h2>Добавить перегон</h2></div><button class="close" data-close="carModal">×</button></div><form id="carForm"><label>Дата<input id="carDate" type="date" required></label><label>Километраж<input id="carKm" type="number" min="0" step="1" required inputmode="numeric" placeholder="45"></label><label>Фактическая сумма <small>если уже известна</small><input id="carAmount" type="number" min="0" step="1" inputmode="numeric" placeholder="Автоматически по тарифу"></label><label>Причина / комментарий<input id="carNote" type="text" placeholder="Например: перегон на сервис"></label><div class="modal-actions"><button type="button" class="btn secondary" data-close="carModal">Отмена</button><button class="btn primary">Добавить перегон</button></div></form></div></div>
+<div
+    class="modal hidden"
+    id="dayModal"
+>
 
-<!-- Фактические суммы -->
-<div class="modal hidden" id="actualModal"><div class="modal-card wizard-card"><div class="modal-head"><div><div class="eyebrow">ФАКТИЧЕСКИЕ ВЫПЛАТЫ</div><h2 id="actualTitle">День</h2></div><button class="close" data-close="actualModal">×</button></div><div class="actual-progress"><span id="actualCounter">1 / 1</span><div class="actual-bar"><i id="actualBar"></i></div></div><div class="actual-body"><p id="actualDateText" class="actual-date"></p><div class="actual-calc" id="actualCalc"></div><label class="actual-input-label">Фактически получил<input id="actualAmount" type="number" min="0" step="1" inputmode="numeric" placeholder="Введите сумму"></label></div><div class="wizard-actions"><button type="button" class="btn secondary" id="actualBack">Назад</button><button type="button" class="btn primary" id="actualNext">Далее</button></div></div></div>
+    <div class="modal-card wizard-card">
 
-<div class="toast" id="toast"></div>
-<div class="notification hidden" id="salaryNotification"><button class="notification-close" id="closeNotification">×</button><div class="notification-icon">₽</div><div><strong>Проверь зарплату</strong><p id="notificationText">Сейчас период выплаты. Если деньги уже пришли, внеси фактические суммы по дням.</p><button class="notification-action" id="notificationGo">Внести выплаты</button></div></div>
+        <div class="modal-head">
+
+            <div>
+
+                <div
+                    class="eyebrow"
+                    id="wizardLabel"
+                >
+                    НОВАЯ СМЕНА
+                </div>
+
+                <h2 id="dayModalTitle">
+                    Добавить день
+                </h2>
+
+            </div>
+
+
+            <button
+                class="close"
+                data-close="dayModal"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <div class="progress">
+
+            <i></i>
+            <i></i>
+            <i></i>
+            <i></i>
+            <i></i>
+
+        </div>
+
+
+        <form id="dayForm">
+
+            <input
+                id="dayId"
+                type="hidden"
+            >
+
+
+            <!-- ШАГ 1 -->
+
+            <div
+                class="step active"
+                data-step="1"
+            >
+
+                <div class="step-title">
+
+                    <span>
+                        01
+                    </span>
+
+                    <div>
+
+                        <h3>
+                            Дата и тариф
+                        </h3>
+
+                        <p>
+                            Выбери дату.
+                            Будний или выходной сайт определит по календарю.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <label>
+
+                    Дата
+
+                    <input
+                        id="dayDate"
+                        type="date"
+                        required
+                    >
+
+                </label>
+
+
+                <label>
+
+                    Тариф
+
+                    <select id="dayTariff">
+
+                        <option value="city">
+                            Город
+                        </option>
+
+                        <option value="country">
+                            Загород
+                        </option>
+
+                    </select>
+
+                </label>
+
+
+                <div
+                    class="calendar-rule"
+                    id="calendarRule"
+                ></div>
+
+
+                <label>
+
+                    Комментарий
+
+                    <small>
+                        необязательно
+                    </small>
+
+                    <input
+                        id="dayNote"
+                        type="text"
+                        placeholder="Например: обычная смена"
+                    >
+
+                </label>
+
+            </div>
+
+
+            <!-- ШАГ 2 -->
+
+            <div
+                class="step"
+                data-step="2"
+            >
+
+                <div class="step-title">
+
+                    <span>
+                        02
+                    </span>
+
+                    <div>
+
+                        <h3>
+                            Точки
+                        </h3>
+
+                        <p>
+                            Количество доставок в ПВЗ / заборов из ПВЗ.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="number-card">
+
+                    <div class="number-label">
+                        Количество точек
+                    </div>
+
+
+                    <div class="number-control">
+
+                        <button
+                            type="button"
+                            data-number="dayPoints"
+                            data-delta="-1"
+                        >
+                            −
+                        </button>
+
+
+                        <input
+                            id="dayPoints"
+                            type="number"
+                            min="0"
+                            step="1"
+                            inputmode="numeric"
+                            value="0"
+                        >
+
+
+                        <button
+                            type="button"
+                            data-number="dayPoints"
+                            data-delta="1"
+                        >
+                            ＋
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ШАГ 3 -->
+
+            <div
+                class="step"
+                data-step="3"
+            >
+
+                <div class="step-title">
+
+                    <span>
+                        03
+                    </span>
+
+                    <div>
+
+                        <h3>
+                            Заказы и ЛОТы
+                        </h3>
+
+                        <p>
+                            Внеси обычные заказы и ЛОТы.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="number-card">
+
+                    <div class="number-label">
+                        Обычные заказы
+                    </div>
+
+
+                    <div class="number-control">
+
+                        <button
+                            type="button"
+                            data-number="dayOrders"
+                            data-delta="-1"
+                        >
+                            −
+                        </button>
+
+
+                        <input
+                            id="dayOrders"
+                            type="number"
+                            min="0"
+                            step="1"
+                            inputmode="numeric"
+                            value="0"
+                        >
+
+
+                        <button
+                            type="button"
+                            data-number="dayOrders"
+                            data-delta="1"
+                        >
+                            ＋
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <div class="number-card">
+
+                    <div class="number-label">
+                        ЛОТы / мешки
+                    </div>
+
+
+                    <div class="number-control">
+
+                        <button
+                            type="button"
+                            data-number="dayLots"
+                            data-delta="-1"
+                        >
+                            −
+                        </button>
+
+
+                        <input
+                            id="dayLots"
+                            type="number"
+                            min="0"
+                            step="1"
+                            inputmode="numeric"
+                            value="0"
+                        >
+
+
+                        <button
+                            type="button"
+                            data-number="dayLots"
+                            data-delta="1"
+                        >
+                            ＋
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ШАГ 4 -->
+
+            <div
+                class="step"
+                data-step="4"
+            >
+
+                <div class="step-title">
+
+                    <span>
+                        04
+                    </span>
+
+                    <div>
+
+                        <h3>
+                            Доставка и доплаты
+                        </h3>
+
+                        <p>
+                            Здесь можно отдельно сохранить МГТ
+                            и любые дополнительные деньги.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="number-card">
+
+                    <div class="number-label">
+                        Доставка клиентам — МГТ
+                    </div>
+
+
+                    <div class="number-control">
+
+                        <button
+                            type="button"
+                            data-number="dayMgt"
+                            data-delta="-1"
+                        >
+                            −
+                        </button>
+
+
+                        <input
+                            id="dayMgt"
+                            type="number"
+                            min="0"
+                            step="1"
+                            inputmode="numeric"
+                            value="0"
+                        >
+
+
+                        <button
+                            type="button"
+                            data-number="dayMgt"
+                            data-delta="1"
+                        >
+                            ＋
+                        </button>
+
+                    </div>
+
+
+                    <div class="field-note">
+                        Сохраняется отдельно для отчёта.
+                        Если МГТ уже входят в «Заказы»,
+                        второй раз не начисляются.
+                    </div>
+
+                </div>
+
+
+                <div class="number-grid">
+
+                    <div class="number-card compact">
+
+                        <div class="number-label">
+                            Мультизаказы до 4
+                        </div>
+
+
+                        <div class="number-control">
+
+                            <button
+                                type="button"
+                                data-number="dayMulti4"
+                                data-delta="-1"
+                            >
+                                −
+                            </button>
+
+
+                            <input
+                                id="dayMulti4"
+                                type="number"
+                                min="0"
+                                step="1"
+                                inputmode="numeric"
+                                value="0"
+                            >
+
+
+                            <button
+                                type="button"
+                                data-number="dayMulti4"
+                                data-delta="1"
+                            >
+                                ＋
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="number-card compact">
+
+                        <div class="number-label">
+                            Мультизаказы 5+
+                        </div>
+
+
+                        <div class="number-control">
+
+                            <button
+                                type="button"
+                                data-number="dayMulti5"
+                                data-delta="-1"
+                            >
+                                −
+                            </button>
+
+
+                            <input
+                                id="dayMulti5"
+                                type="number"
+                                min="0"
+                                step="1"
+                                inputmode="numeric"
+                                value="0"
+                            >
+
+
+                            <button
+                                type="button"
+                                data-number="dayMulti5"
+                                data-delta="1"
+                            >
+                                ＋
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div class="extra-payment-card">
+
+                    <div class="extra-payment-title">
+                        Доплата за этот день
+                    </div>
+
+
+                    <p>
+                        Например: выход в свой выходной,
+                        стажировка, дополнительная работа.
+                    </p>
+
+
+                    <div class="number-control extra-number-control">
+
+                        <button
+                            type="button"
+                            data-number="dayExtraAdd"
+                            data-delta="-100"
+                        >
+                            −
+                        </button>
+
+
+                        <input
+                            id="dayExtraAdd"
+                            type="number"
+                            min="0"
+                            step="1"
+                            inputmode="numeric"
+                            value="0"
+                        >
+
+
+                        <button
+                            type="button"
+                            data-number="dayExtraAdd"
+                            data-delta="100"
+                        >
+                            ＋
+                        </button>
+
+                    </div>
+
+
+                    <label>
+
+                        Причина доплаты
+
+                        <input
+                            id="dayExtraReason"
+                            type="text"
+                            maxlength="200"
+                            placeholder="Например: вышел в свой выходной"
+                        >
+
+                    </label>
+
+                </div>
+
+            </div>
+
+
+            <!-- ШАГ 5 -->
+
+            <div
+                class="step"
+                data-step="5"
+            >
+
+                <div class="step-title">
+
+                    <span>
+                        05
+                    </span>
+
+                    <div>
+
+                        <h3>
+                            Проверка
+                        </h3>
+
+                        <p>
+                            Сначала сохраняется расчёт.
+                            Фактическую сумму можно внести позже
+                            в отдельном режиме.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div
+                    id="dayPreview"
+                    class="preview"
+                ></div>
+
+
+                <div class="hint">
+                    Фактическую выплату не обязательно вводить сейчас.
+                </div>
+
+            </div>
+
+
+            <!-- КНОПКИ -->
+
+            <div class="wizard-actions">
+
+                <button
+                    type="button"
+                    class="btn secondary"
+                    id="wizardBack"
+                >
+                    Назад
+                </button>
+
+
+                <div>
+
+                    <button
+                        type="button"
+                        class="btn primary"
+                        id="wizardNext"
+                    >
+                        Далее
+                    </button>
+
+
+                    <button
+                        type="submit"
+                        class="btn primary hidden"
+                        id="wizardSave"
+                    >
+                        Сохранить день
+                    </button>
+
+                </div>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     МОДАЛЬНОЕ ОКНО — ОТДЕЛЬНАЯ ДОПЛАТА
+========================================================= -->
+
+<div
+    class="modal hidden"
+    id="extraModal"
+>
+
+    <div class="modal-card small">
+
+        <div class="modal-head">
+
+            <div>
+
+                <div class="eyebrow">
+                    ДОПЛАТА
+                </div>
+
+                <h2>
+                    Добавить отдельную доплату
+                </h2>
+
+            </div>
+
+
+            <button
+                class="close"
+                data-close="extraModal"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <form id="extraForm">
+
+            <label>
+
+                Дата
+
+                <input
+                    id="extraDate"
+                    type="date"
+                    required
+                >
+
+            </label>
+
+
+            <label>
+
+                Сумма
+
+                <input
+                    id="extraAmount"
+                    type="number"
+                    min="0"
+                    step="1"
+                    required
+                    inputmode="numeric"
+                    placeholder="2000"
+                >
+
+            </label>
+
+
+            <label>
+
+                Причина
+
+                <input
+                    id="extraReason"
+                    type="text"
+                    maxlength="200"
+                    required
+                    placeholder="Например: отвёз машину после смены"
+                >
+
+            </label>
+
+
+            <label>
+
+                Привязать к смене
+
+                <small>
+                    необязательно
+                </small>
+
+                <select id="extraDayId">
+
+                    <option value="">
+                        Отдельно от смены
+                    </option>
+
+                </select>
+
+            </label>
+
+
+            <div class="modal-actions">
+
+                <button
+                    type="button"
+                    class="btn secondary"
+                    data-close="extraModal"
+                >
+                    Отмена
+                </button>
+
+
+                <button
+                    class="btn primary"
+                    type="submit"
+                >
+                    Добавить
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     МОДАЛЬНОЕ ОКНО — ПЕРЕГОН
+========================================================= -->
+
+<div
+    class="modal hidden"
+    id="carModal"
+>
+
+    <div class="modal-card small">
+
+        <div class="modal-head">
+
+            <div>
+
+                <div class="eyebrow">
+                    ПЕРЕГОН
+                </div>
+
+                <h2>
+                    Добавить перегон
+                </h2>
+
+            </div>
+
+
+            <button
+                class="close"
+                data-close="carModal"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <form id="carForm">
+
+            <label>
+
+                Дата
+
+                <input
+                    id="carDate"
+                    type="date"
+                    required
+                >
+
+            </label>
+
+
+            <label>
+
+                Километраж
+
+                <input
+                    id="carKm"
+                    type="number"
+                    min="0"
+                    step="1"
+                    required
+                    inputmode="numeric"
+                    placeholder="45"
+                >
+
+            </label>
+
+
+            <label>
+
+                Фактическая сумма
+
+                <small>
+                    если уже известна
+                </small>
+
+                <input
+                    id="carAmount"
+                    type="number"
+                    min="0"
+                    step="1"
+                    inputmode="numeric"
+                    placeholder="Автоматически по тарифу"
+                >
+
+            </label>
+
+
+            <label>
+
+                Причина / комментарий
+
+                <input
+                    id="carNote"
+                    type="text"
+                    placeholder="Например: перегон на сервис"
+                >
+
+            </label>
+
+
+            <div class="modal-actions">
+
+                <button
+                    type="button"
+                    class="btn secondary"
+                    data-close="carModal"
+                >
+                    Отмена
+                </button>
+
+
+                <button
+                    class="btn primary"
+                    type="submit"
+                >
+                    Добавить перегон
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     ФАКТИЧЕСКИЕ ВЫПЛАТЫ
+========================================================= -->
+
+<div
+    class="modal hidden"
+    id="actualModal"
+>
+
+    <div class="modal-card wizard-card">
+
+        <div class="modal-head">
+
+            <div>
+
+                <div class="eyebrow">
+                    ФАКТИЧЕСКИЕ ВЫПЛАТЫ
+                </div>
+
+                <h2 id="actualTitle">
+                    День
+                </h2>
+
+            </div>
+
+
+            <button
+                class="close"
+                data-close="actualModal"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <div class="actual-progress">
+
+            <span id="actualCounter">
+                1 / 1
+            </span>
+
+
+            <div class="actual-bar">
+
+                <i id="actualBar"></i>
+
+            </div>
+
+        </div>
+
+
+        <div class="actual-body">
+
+            <p
+                id="actualDateText"
+                class="actual-date"
+            ></p>
+
+
+            <div
+                class="actual-calc"
+                id="actualCalc"
+            ></div>
+
+
+            <label class="actual-input-label">
+
+                Фактически получил
+
+                <input
+                    id="actualAmount"
+                    type="number"
+                    min="0"
+                    step="1"
+                    inputmode="numeric"
+                    placeholder="Введите сумму"
+                >
+
+            </label>
+
+        </div>
+
+
+        <div class="wizard-actions">
+
+            <button
+                type="button"
+                class="btn secondary"
+                id="actualBack"
+            >
+                Назад
+            </button>
+
+
+            <button
+                type="button"
+                class="btn primary"
+                id="actualNext"
+            >
+                Далее
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     УВЕДОМЛЕНИЕ
+========================================================= -->
+
+<div
+    class="notification hidden"
+    id="salaryNotification"
+>
+
+    <button
+        class="notification-close"
+        id="closeNotification"
+    >
+        ×
+    </button>
+
+
+    <div class="notification-icon">
+        ₽
+    </div>
+
+
+    <div>
+
+        <strong>
+            Проверь зарплату
+        </strong>
+
+        <p id="notificationText">
+            Сейчас период выплаты.
+            Если деньги уже пришли,
+            внеси фактические суммы по дням.
+        </p>
+
+
+        <button
+            class="notification-action"
+            id="notificationGo"
+        >
+            Внести выплаты
+        </button>
+
+    </div>
+
+</div>
+
+
+<div
+    class="toast"
+    id="toast"
+></div>
+
+
 <script src="script.js"></script>
+
 </body>
 </html>
